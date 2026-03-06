@@ -948,7 +948,7 @@ body.modal-open {
       if(title) title.textContent = `Export ${target?.label || 'History'} (PDF)`;
       const today = new Date();
       const startD = new Date();
-      startD.setDate(today.getDate() - 29); 
+      startD.setDate(today.getDate() - 119);
       if(start) start.value = toISODate(startD);
       if(end) end.value = toISODate(today);
       if(order && !order.value) order.value = 'desc';
@@ -1399,7 +1399,7 @@ body.modal-open {
 <option value="asc">Oldest first</option>
 </select>
 </div>
-<div class="helper" style="margin-top:8px; font-size:0.85rem; color:#888;">Defaults to the last 30 days.</div>
+<div class="helper" style="margin-top:8px; font-size:0.85rem; color:#888;">Defaults to the last 120 days.</div>
 <button class="lab-save-btn" id="export-run-btn" onclick="window.runExportFromModal()" type="button">Generate PDF</button>
 </div>
 </div>
@@ -2519,7 +2519,7 @@ Conceptual Foundation and Mechanistic Framework
         return snapshot.docs.map((d) => d.data());
       }
 
-      async function fetchPatientLogs(patientId, days = 30) {
+      async function fetchPatientLogs(patientId, days = 120) {
         const q = db.collection(userProfilePath(patientId, "synthetic_logs")).orderBy("date", "desc").limit(days);
         const snapshot = await q.get();
         return snapshot.docs.map((d) => d.data());
@@ -3418,7 +3418,7 @@ Conceptual Foundation and Mechanistic Framework
 
       window.renderTrends = async function() {
         try {
-          const logs = await fetchPatientLogs("patrick", 30);
+          const logs = await fetchPatientLogs("patrick", 120);
           const elSum = el("change-summary");
           if (!elSum) return;
           const withRating = logs.filter(l => !!l.baseline_rating);
@@ -3465,7 +3465,7 @@ Conceptual Foundation and Mechanistic Framework
 
       window.renderTrendsCharts = async function() {
         try {
-          const logs = await fetchPatientLogs("patrick", 30);
+          const logs = await fetchPatientLogs("patrick", 120);
           const ordered = [...logs].sort((a,b) => String(a.date||"").localeCompare(String(b.date||"")));
           const labels = ordered.map(l => l.date || "");
           _buildLineChart("chart-global", labels, ordered.map(l => _mapBaselineTo15(l.baseline_rating)), 1, 5, "Global baseline (1–5)");
