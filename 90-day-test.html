@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AMN Protocol — 90-Day Data Loader</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #000;
+    --card: #1C1C1E;
+    --border: #2C2C2E;
+    --green: #30D158;
+    --blue: #0A84FF;
+    --red: #FF453A;
+    --yellow: #FFD60A;
+    --purple: #BF5AF2;
+    --muted: #8E8E93;
+    --font: 'Inter', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: #fff;
+    font-family: var(--font);
+    padding: 20px;
+    min-height: 100vh;
+  }
+  .page { max-width: 600px; margin: 0 auto; }
+
+  h1 { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.5px; text-transform: uppercase; margin-bottom: 8px; }
+  .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 24px; line-height: 1.5; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card h2 { font-size: 0.9rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 12px; }
+  .card h3 { font-size: 0.78rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+
+  label { display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
+  input, select {
+    background: #111;
+    border: 1px solid var(--border);
+    color: #fff;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    width: 100%;
+    margin-bottom: 12px;
+    font-family: var(--font);
+  }
+
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+
+  .btn {
+    font-family: var(--font);
+    font-size: 0.9rem;
+    font-weight: 800;
+    padding: 14px 24px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    width: 100%;
+    transition: opacity 0.15s;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-go { background: var(--green); color: #000; margin-bottom: 10px; }
+  .btn-clear { background: var(--red); color: #fff; margin-bottom: 10px; }
+  .btn-back { background: var(--border); color: #fff; }
+
+  .status-box {
+    background: #111;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    margin-top: 16px;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+  }
+  .status-box .ok { color: var(--green); }
+  .status-box .err { color: var(--red); }
+  .status-box .warn { color: var(--yellow); }
+  .status-box .info { color: var(--blue); }
+
+  .progress-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    margin-top: 12px;
+    overflow: hidden;
+    display: none;
+  }
+  .progress-bar .fill {
+    height: 100%;
+    background: var(--green);
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.2s;
+  }
+
+  .result-banner {
+    padding: 14px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    text-align: center;
+    margin-top: 16px;
+    display: none;
+  }
+  .result-banner.success { background: rgba(48,209,88,0.15); color: var(--green); border: 1px solid var(--green); }
+  .result-banner.fail { background: rgba(255,69,58,0.15); color: var(--red); border: 1px solid var(--red); }
+
+  .safety-note {
+    background: rgba(255,214,10,0.1);
+    border: 1px solid var(--yellow);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 0.8rem;
+    color: var(--yellow);
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>90-Day Data Loader</h1>
+  <p class="subtitle">
+    One-click: populates the main app with 90 days of realistic synthetic protocol data.
+    Charts, trends, summaries, and PDF export will all work as if you'd been tracking for 3 months.
+  </p>
+
+  <div class="safety-note">
+    LOCAL ONLY — No Firebase. Data goes to your browser's localStorage only.
+    Will not touch your real Firestore data. Clear it anytime with the button below.
+  </div>
+
+  <!-- Config -->
+  <div class="card">
+    <h2>Configuration</h2>
+    <div class="row">
+      <div>
+        <label>Days to generate</label>
+        <input id="cfg-days" type="number" value="90" min="7" max="365"/>
+      </div>
+      <div>
+        <label>Start date</label>
+        <input id="cfg-start" type="date"/>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>Profile</label>
+        <select id="cfg-profile">
+          <option value="patrick" selected>Pilot (Patrick)</option>
+        </select>
+      </div>
+      <div>
+        <label>Data pattern</label>
+        <select id="cfg-pattern">
+          <option value="realistic" selected>Realistic (gradual improvement)</option>
+          <option value="volatile">Volatile (ups and downs)</option>
+          <option value="flat">Flat (stable baseline)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="card">
+    <h2>Actions</h2>
+    <button class="btn btn-go" id="btn-go" onclick="runLoader()">Load 90 Days of Data</button>
+    <button class="btn btn-clear" id="btn-clear" onclick="clearSynthetic()">Clear Synthetic Data</button>
+    <button class="btn btn-back" onclick="window.location.href='index.html'">Back to App</button>
+
+    <div class="progress-bar" id="progress"><div class="fill" id="progress-fill"></div></div>
+    <div class="result-banner" id="result"></div>
+    <div class="status-box" id="log"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// LOCAL-ONLY — No Firebase, no cloud writes
+// ============================================================
+
+// ============================================================
+// Logging helpers
+// ============================================================
+function log(msg, cls = 'info') {
+  const box = document.getElementById('log');
+  box.style.display = 'block';
+  box.innerHTML += `<div class="${cls}">${msg}</div>`;
+  box.scrollTop = box.scrollHeight;
+}
+function setProgress(pct) {
+  const bar = document.getElementById('progress');
+  bar.style.display = 'block';
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+function showResult(ok, msg) {
+  const el = document.getElementById('result');
+  el.style.display = 'block';
+  el.className = 'result-banner ' + (ok ? 'success' : 'fail');
+  el.textContent = msg;
+}
+
+// ============================================================
+// Set default start date to 90 days ago
+// ============================================================
+(function setDefaults() {
+  const d = new Date();
+  d.setDate(d.getDate() - 89);
+  document.getElementById('cfg-start').value = d.toISOString().split('T')[0];
+})();
+
+// ============================================================
+// Realistic data generation
+// ============================================================
+function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function randFloat(min, max) { return Math.round((Math.random() * (max - min) + min) * 10) / 10; }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+const BASELINE_RATINGS = ['much_worse','worse','slightly_worse','baseline','slightly_better','better','much_better'];
+const BASELINE_MAP = { much_worse:0, worse:1, slightly_worse:2, baseline:3, slightly_better:4, better:5, much_better:6 };
+const PAIN_DRIVERS = ['piriformis_glute','low_back','hip','thigh','calf','foot','other'];
+const NMT_OPTIONS = [{level:0,label:'none'},{level:1,label:'light'},{level:2,label:'full'}];
+
+function generateDay(dayIndex, totalDays, pattern) {
+  // Progress ratio 0→1
+  const t = dayIndex / totalDays;
+
+  // Base curves per pattern
+  let symptomBase, energyBase, painBase, sleepBase, ratingBias;
+  if (pattern === 'realistic') {
+    // Gradual improvement: symptoms decrease, energy increases
+    symptomBase = 6.5 - t * 2.5;   // 6.5 → 4.0
+    energyBase  = 4.0 + t * 3.0;   // 4.0 → 7.0
+    painBase    = 5.5 - t * 2.0;   // 5.5 → 3.5
+    sleepBase   = 4.5 + t * 2.5;   // 4.5 → 7.0
+    ratingBias  = 3 + t * 2;       // baseline → better
+  } else if (pattern === 'volatile') {
+    // Fluctuating with slight overall improvement
+    const wave = Math.sin(dayIndex / 7 * Math.PI) * 1.5;
+    symptomBase = 5.5 + wave - t * 1.0;
+    energyBase  = 5.0 - wave + t * 0.5;
+    painBase    = 5.0 + wave * 0.8 - t * 0.5;
+    sleepBase   = 5.0 - wave * 0.6 + t * 0.5;
+    ratingBias  = 3 + wave * 0.5;
+  } else { // flat
+    symptomBase = 5.0;
+    energyBase  = 5.5;
+    painBase    = 4.0;
+    sleepBase   = 6.0;
+    ratingBias  = 3;
+  }
+
+  // Add daily noise
+  const noise = () => randFloat(-1.2, 1.2);
+  const boolChance = (pct) => Math.random() < pct;
+
+  // Occasional bad days (simulate flare-ups)
+  const isFlareDay = boolChance(0.08);
+  const flareMod = isFlareDay ? 2.5 : 0;
+
+  const sym = (base) => clamp(Math.round(base + noise() + flareMod), 0, 10);
+  const symGood = (base) => clamp(Math.round(base + noise() - flareMod), 0, 10);
+
+  // Pick baseline rating
+  const rIdx = clamp(Math.round(ratingBias + noise()), 0, 6);
+  const baselineRating = BASELINE_RATINGS[rIdx];
+
+  // Adherence improves over time (more consistent later)
+  const adherenceRate = Math.min(0.95, 0.75 + t * 0.2);
+
+  // NMT increases over time
+  const nmtIdx = t < 0.3 ? (boolChance(0.7) ? 0 : 1) : (t < 0.6 ? (boolChance(0.5) ? 1 : 2) : (boolChance(0.7) ? 2 : 1));
+  const nmt = NMT_OPTIONS[nmtIdx];
+
+  // Fast markers decrease over time
+  const fastRate = Math.max(0.02, 0.15 - t * 0.1);
+
+  const payload = {
+    date: null, // set by caller
+
+    baseline_rating: baselineRating,
+    baseline_confidence: pick(['low','medium','medium','high']),
+    energy_capacity: symGood(energyBase),
+    energy_confidence: pick(['low','medium','medium','high']),
+
+    symptom_drift: {
+      brain_fog:              sym(symptomBase - 0.5),
+      step_gait_effort:       sym(symptomBase),
+      gait_initiation_effort: sym(symptomBase + 0.3),
+      sustained_walking_effort: sym(symptomBase + 0.5),
+      neurologic_fatigue:     sym(symptomBase + 0.2),
+      sleep_quality:          symGood(sleepBase),
+      leg_stiffness:          sym(symptomBase + 0.8),
+      post_rest_stiffness:    sym(symptomBase + 0.4),
+      symptom_volatility:     sym(pattern === 'volatile' ? 6 : symptomBase - 1)
+    },
+
+    pain_impact: {
+      severity:              sym(painBase),
+      interfered_with_sleep: boolChance(isFlareDay ? 0.7 : 0.2),
+      limited_walking:       boolChance(isFlareDay ? 0.6 : 0.15),
+      forced_extra_rest:     boolChance(isFlareDay ? 0.5 : 0.1),
+      required_rescue_meds:  boolChance(isFlareDay ? 0.4 : 0.05),
+      changed_gait_mechanics:boolChance(isFlareDay ? 0.5 : 0.1),
+      primary_driver:        pick(PAIN_DRIVERS)
+    },
+
+    vitals: {
+      morning: { bp_sys: rand(110,135), bp_dia: rand(65,85), hr: rand(58,78) },
+      evening: { bp_sys: rand(115,140), bp_dia: rand(70,90), hr: rand(62,82) }
+    },
+
+    protocol_adherence: {
+      nervonic_acid_taken:  boolChance(adherenceRate),
+      nervonic_acid_missed: boolChance(1 - adherenceRate),
+      nac_taken:            boolChance(adherenceRate),
+      r_ala_taken:          boolChance(adherenceRate),
+      vitamin_e_taken:      boolChance(adherenceRate)
+    },
+
+    external_neuromuscular_training: {
+      level: nmt.level,
+      label: nmt.label
+    },
+
+    fast_markers: {
+      near_fall_or_balance_scare:  boolChance(fastRate),
+      electrolyte_rescue_required: boolChance(fastRate * 0.8),
+      spasm_or_clonus_episode:     boolChance(fastRate * 1.2),
+      night_pain_woke_me:          boolChance(isFlareDay ? 0.6 : fastRate * 2),
+      restless_legs_at_night:      boolChance(isFlareDay ? 0.5 : fastRate * 1.5)
+    },
+
+    context_changes: {
+      poor_sleep_last_night:                boolChance(0.25),
+      unusual_physical_exertion:            boolChance(0.15),
+      medication_timing_change:             boolChance(0.08),
+      dose_change:                          boolChance(0.04),
+      missed_dose:                          boolChance(1 - adherenceRate),
+      new_supplement_added:                 boolChance(0.03),
+      new_medication_added:                 boolChance(0.02),
+      travel_or_disrupted_schedule:         boolChance(0.06),
+      high_stress:                          rand(0, isFlareDay ? 3 : 1),
+      infection_symptoms:                   boolChance(0.03),
+      gi_upset_or_dehydration_risk:         boolChance(0.1),
+      night_pain_likely_electrolyte_related:boolChance(0.12),
+      electrolyte_rescue_type:              boolChance(0.1) ? pick(['na','k','mg','unsure']) : '',
+      electrolyte_rescue_window:            boolChance(0.1) ? pick(['15','30','60','120']) : '',
+      nothing_unusual:                      boolChance(0.4)
+    },
+
+    positive_events: isFlareDay ? [] : (boolChance(0.3) ? [{ desc: pick([
+      'Walked extra block without rest',
+      'Good energy throughout afternoon',
+      'Stairs felt easier today',
+      'Less morning stiffness than usual',
+      'Better balance during walk',
+      'Slept through the night',
+      'Managed full exercise routine'
+    ]), durationMin: rand(5, 60), trigger: null, detail: null }] : []),
+
+    adverse_events: isFlareDay ? [{ desc: pick([
+      'Significant leg heaviness after short walk',
+      'Spasm episode lasting several minutes',
+      'Balance scare on uneven surface',
+      'Severe fatigue required extended rest',
+      'Night pain disrupted sleep significantly'
+    ]), durationMin: rand(10, 120), trigger: pick(['exertion','heat','stress','unknown']), detail: null }] : [],
+
+    daily_summary: pick([
+      null,
+      `Day ${dayIndex + 1} — ${isFlareDay ? 'Tough day, symptoms flared.' : 'Manageable day overall.'}`,
+      isFlareDay ? 'Flare day. Rested more than usual.' : 'Steady day. Protocol followed.',
+      null
+    ]),
+    notes: boolChance(0.15) ? pick([
+      'Noticed improvement in morning routine',
+      'Weather may be affecting stiffness',
+      'Tried new stretching routine',
+      'Hydration was better today',
+      null
+    ]) : null,
+    food_notes: boolChance(0.1) ? pick([
+      'Added more leafy greens',
+      'Salmon for dinner — omega-3 focus',
+      'Reduced sugar intake today',
+      null
+    ]) : null
+  };
+
+  return payload;
+}
+
+// ============================================================
+// Main loader
+// ============================================================
+let running = false;
+
+async function runLoader() {
+  if (running) return;
+  running = true;
+
+  const days = parseInt(document.getElementById('cfg-days').value) || 90;
+  const startStr = document.getElementById('cfg-start').value;
+  const profile = document.getElementById('cfg-profile').value;
+  const pattern = document.getElementById('cfg-pattern').value;
+
+  if (!startStr) { alert('Please set a start date'); running = false; return; }
+
+  document.getElementById('btn-go').disabled = true;
+  document.getElementById('btn-clear').disabled = true;
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('result').style.display = 'none';
+
+  const startDate = new Date(startStr + 'T00:00:00');
+
+  log(`Generating ${days} days of "${pattern}" data starting ${startStr}`, 'info');
+  log(`Profile: ${profile} | Storage: localStorage only`, 'info');
+  log('─'.repeat(50), 'info');
+
+  let written = 0, errors = 0;
+  const generatedDates = [];
+
+  for (let i = 0; i < days; i++) {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + i);
+    const dateStr = d.toISOString().split('T')[0];
+
+    const payload = generateDay(i, days, pattern);
+    payload.date = dateStr;
+
+    try {
+      // Always write to localStorage (as the app's draft format)
+      const lsKey = `protocol_draft_${profile}_${dateStr}`;
+      localStorage.setItem(lsKey, JSON.stringify({
+        _date: dateStr,
+        _synthetic: true,
+        fields: payload,
+        episodes: {
+          positive: payload.positive_events || [],
+          adverse: payload.adverse_events || []
+        }
+      }));
+
+      written++;
+      generatedDates.push(dateStr);
+
+      if (i % 10 === 0 || i === days - 1) {
+        log(`Day ${i + 1}/${days} — ${dateStr} ✓`, 'ok');
+      }
+    } catch(e) {
+      errors++;
+      log(`Day ${i + 1} (${dateStr}) FAILED: ${e.message}`, 'err');
+    }
+
+    setProgress(Math.round(((i + 1) / days) * 100));
+  }
+
+  log('─'.repeat(50), 'info');
+  log(`Done! ${written} days written, ${errors} errors`, errors ? 'warn' : 'ok');
+  log(`Data written to localStorage: protocol_draft_${profile}_*`, 'info');
+  log('', 'info');
+  log('Open the main app to see charts and trends populated.', 'ok');
+
+  if (errors === 0) {
+    showResult(true, `${written} days loaded successfully — open the app to verify!`);
+  } else {
+    showResult(false, `${written} days loaded, ${errors} errors — check log above`);
+  }
+
+  document.getElementById('btn-go').disabled = false;
+  document.getElementById('btn-clear').disabled = false;
+  running = false;
+}
+
+// ============================================================
+// Clear synthetic data
+// ============================================================
+async function clearSynthetic() {
+  if (!confirm('This will remove all synthetic test data. Real data (without _synthetic flag) is preserved. Continue?')) return;
+
+  document.getElementById('btn-go').disabled = true;
+  document.getElementById('btn-clear').disabled = true;
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('result').style.display = 'none';
+
+  const profile = document.getElementById('cfg-profile').value;
+  let cleared = 0;
+
+  // Clear localStorage
+  const prefix = `protocol_draft_${profile}_`;
+  const keysToRemove = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(prefix)) {
+      try {
+        const data = JSON.parse(localStorage.getItem(key));
+        if (data && data._synthetic) {
+          keysToRemove.push(key);
+        }
+      } catch(e) { /* skip non-JSON */ }
+    }
+  }
+  keysToRemove.forEach(k => { localStorage.removeItem(k); cleared++; });
+  log(`Cleared ${keysToRemove.length} synthetic entries from localStorage`, 'ok');
+
+  showResult(true, `Cleared ${cleared} synthetic entries`);
+  document.getElementById('btn-go').disabled = false;
+  document.getElementById('btn-clear').disabled = false;
+}
+</script>
+</body>
+</html>

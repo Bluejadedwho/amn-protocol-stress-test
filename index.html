@@ -1,0 +1,3777 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<script>window.__AUTH_MODULE_LOADED__ = false;</script>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>The Protocol</title>
+<meta content="yes" name="apple-mobile-web-app-capable"/>
+<meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
+<meta content="#000000" name="theme-color"/>
+<link href="icon.png" rel="icon" type="image/png"/>
+<link href="icon.png" rel="apple-touch-icon"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+    :root {
+      --bg-color: #000000;
+      --card-bg: #1C1C1E;
+      --text-primary: #FFFFFF;
+      --text-secondary: #8E8E93;
+      --accent-color: #30D158;
+      --accent-blue: #0A84FF;
+      --danger-red: #FF453A;
+      --lab-purple: #BF5AF2;
+      --font-family: 'Inter', sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-primary);
+      font-family: var(--font-family);
+      margin: 0;
+      padding: 20px;
+      padding-top: env(safe-area-inset-top, 20px);
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      user-select: none;
+    }
+
+    #app-container {
+      max-width: 480px;
+      width: 100%;
+      margin: 0 auto;
+      flex-grow: 1;
+      position: relative;
+    }
+
+    .hero-icon, .header-icon, .menu-icon { border-radius: 50%; object-fit: cover; }
+
+    /* --- VIEW MANAGEMENT --- */
+    .view { display: none; animation: fadeIn 0.4s ease; }
+    .view.active { display: block; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* --- THE SPLASH CURTAIN --- */
+    #splash-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #000000;
+      z-index: 10010;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      transition: opacity 0.6s ease, visibility 0.6s;
+      padding: 20px;
+      padding-bottom: 80px; /* FIX #5: room for attribution at bottom */
+    }
+    #splash-overlay.fade-out {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    @keyframes floatAndShimmer {
+      0% { transform: translateY(0px); filter: brightness(100%) drop-shadow(0 0 10px rgba(48, 209, 88, 0.2)); }
+      50% { transform: translateY(-15px); filter: brightness(130%) drop-shadow(0 0 25px rgba(48, 209, 88, 0.6)); }
+      100% { transform: translateY(0px); filter: brightness(100%) drop-shadow(0 0 10px rgba(48, 209, 88, 0.2)); }
+    }
+    .hero-icon {
+      height: 120px;
+      width: 120px;
+      margin-bottom: 30px;
+      border: 2px solid var(--accent-color);
+      animation: floatAndShimmer 4s ease-in-out infinite;
+    }
+    .enter-btn {
+      background: var(--accent-color);
+      color: black;
+      border: none;
+      padding: 16px 50px;
+      border-radius: 30px;
+      font-size: 1.1rem;
+      font-weight: 800;
+      margin-top: 40px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: transform 0.2s;
+      box-shadow: 0 0 20px rgba(48, 209, 88, 0.3);
+    }
+    .enter-btn:active { transform: scale(0.95); }
+
+    /* New Black Button Style */
+    .black-btn {
+      background: #000000;
+      color: #ffffff;
+      border: 1px solid #333;
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-top: 15px;
+      width: 100%;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .black-btn:active { background: #1a1a1a; }
+
+    header { margin-bottom: 20px; display: flex; align-items: center; }
+
+    .back-btn {
+      background: none;
+      border: none;
+      color: var(--accent-blue);
+      font-size: 1.1rem;
+      font-weight: 600;
+      padding: 0;
+      margin-right: 15px;
+      cursor: pointer;
+    }
+
+    .header-icon { height: 40px; width: 40px; margin-right: 15px; border: 1px solid #333; }
+
+    h1 {
+      margin: 0;
+      font-weight: 800;
+      font-size: 1.4rem;
+      letter-spacing: -0.5px;
+      line-height: 1.25;
+      text-transform: uppercase;
+    }
+    h2 { margin: 0; font-weight: 800; }
+
+    .logo-area {
+      text-align: center;
+      margin-bottom: 20px;
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .menu-icon { height: 80px; width: 80px; margin-bottom: 20px; border: 1px solid #333; }
+
+    .title-sub {
+      color: var(--text-secondary);
+      margin-top: 12px;
+      font-size: 0.85rem;
+      line-height: 1.4;
+      max-width: 320px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .profile-select { display: flex; flex-direction: column; gap: 15px; margin-bottom: 30px; margin-top: 25px; }
+
+    .card-btn {
+      background: var(--card-bg);
+      border: 1px solid #333;
+      color: white;
+      width: 100%;
+      padding: 25px;
+      border-radius: 16px;
+      text-align: left;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .card-btn:active { transform: scale(0.98); }
+    .card-btn h2 { font-size: 1.2rem; margin-bottom: 4px; }
+    .card-btn p { margin: 0; color: var(--text-secondary); font-size: 0.9rem; }
+
+    details {
+      background-color: var(--card-bg);
+      border: 1px solid #333;
+      border-radius: 16px;
+      margin-top: 0;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      width: 100%;
+    }
+    details.lab-folder { border: 1px solid var(--lab-purple); margin-top: 20px; }
+
+    summary {
+      padding: 18px 15px;
+      cursor: pointer;
+      font-weight: 700;
+      color: var(--accent-color);
+      display: flex;
+      align-items: center;
+      list-style: none;
+      font-size: 0.9rem;
+    }
+    details.lab-folder summary { color: var(--lab-purple); }
+    summary::-webkit-details-marker { display: none; }
+
+    summary::before {
+      content: "📁";
+      margin-right: 12px;
+      font-size: 1.2rem;
+      filter: grayscale(100%);
+      flex-shrink: 0;
+    }
+    details.lab-folder summary::before { content: "🩸"; filter: none; }
+
+    summary::after {
+      content: "+";
+      margin-left: 10px;
+      font-size: 1.2rem;
+      color: #555;
+      font-weight: 400;
+      flex-shrink: 0;
+    }
+    details[open] summary::after { content: "−"; }
+
+    .summary-text { flex: 1; text-align: center; line-height: 1.35; white-space: normal; }
+
+    .folder-content { padding: 0 15px 20px 15px; background-color: #222; border-top: 1px solid #333; }
+
+    .report-link {
+      display: flex;
+      align-items: center;
+      background: #2C2C2E;
+      padding: 15px;
+      border-radius: 12px;
+      margin-top: 12px;
+      text-decoration: none;
+      color: white;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+    .report-link:active { background: #3A3A3C; }
+    .report-icon { margin-right: 12px; font-size: 1.2rem; }
+    .report-sub { font-size: 0.75rem; color: #8E8E93; font-weight: 400; margin-top: 2px; }
+    .report-link.secondary {
+      background: rgba(44, 44, 46, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 12px 14px;
+      margin-top: 8px;
+      margin-left: 26px;
+      font-size: 0.82rem;
+      opacity: 0.9;
+    }
+    .report-link.secondary:active { background: rgba(58, 58, 60, 0.55); }
+    .report-link.secondary .report-icon { font-size: 1.05rem; opacity: 0.9; }
+
+    .card {
+      background-color: var(--card-bg);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    input[type="text"], input[type="number"], input[type="date"], textarea, select {
+      background: #2C2C2E;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      padding: 12px;
+      width: 100%;
+      font-size: 16px;
+      box-sizing: border-box;
+      outline: none;
+      font-family: var(--font-family);
+    }
+    input:focus, textarea:focus, select:focus { border: 1px solid var(--accent-color); }
+
+    .input-row { display: flex; gap: 15px; }
+    .input-group { flex: 1; }
+    .input-group label { display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 5px; }
+
+    .checkbox-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 14px 0;
+      border-bottom: 1px solid #333;
+      align-items: center;
+    }
+    .checkbox-row:last-child { border-bottom: none; }
+    .checkbox-row span { font-weight: 500; }
+
+    input[type="checkbox"] { accent-color: var(--accent-color); width: 24px; height: 24px; cursor: pointer; }
+
+    input[type="range"] { width: 100%; margin: 10px 0; accent-color: var(--accent-blue); cursor: pointer; }
+    .slider-header { display: flex; justify-content: space-between; margin-top: 15px; font-size: 0.9rem; }
+    .slider-val { font-weight: bold; color: var(--accent-blue); }
+
+    .save-btn {
+      background-color: var(--accent-color);
+      color: black;
+      font-weight: 800;
+      width: 100%;
+      padding: 18px;
+      border: none;
+      border-radius: 16px;
+      font-size: 1.1rem;
+      margin-bottom: 40px;
+      cursor: pointer;
+      box-shadow: 0 0 15px rgba(48, 209, 88, 0.3);
+    }
+
+    .streak-badge {
+      background: #333;
+      padding: 5px 12px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      color: var(--accent-color);
+      margin-left: auto;
+    }
+
+    .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider.round { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #3a3a3c; transition: .4s; border-radius: 34px; }
+    .slider.round:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: var(--danger-red); }
+    input:checked + .slider:before { transform: translateX(22px); }
+
+    .lab-save-btn { background-color: var(--lab-purple); color: white; font-weight: 700; width: 100%; padding: 12px; border: none; border-radius: 12px; margin-top: 20px; cursor: pointer; }
+    .safety-save-btn { background-color: var(--danger-red); color: white; font-weight: 700; width: 100%; padding: 12px; border: none; border-radius: 12px; margin-top: 20px; cursor: pointer; }
+
+    .hidden-box { display: none; margin-top: 15px; border-top: 1px solid #333; padding-top: 15px; }
+    .visible-box { display: block; animation: slideDown 0.3s ease; }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+    .history-list { margin-top: 20px; border-top: 1px solid #444; padding-top: 10px; }
+    .history-item { background: #2C2C2E; margin-bottom: 8px; border-radius: 8px; overflow: hidden; }
+    .history-summary { padding: 12px; display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 600; cursor: pointer; color: #E0E0E0; }
+    .history-details { padding: 10px 12px; background: #1c1c1e; font-size: 0.85rem; color: #AAA; border-top: 1px solid #444; line-height: 1.6; display: none; }
+    .history-item.open .history-details { display: block; }
+
+    .pill-row { display:flex; gap:10px; margin-top:10px; }
+    .pill-btn {
+      background:#2C2C2E;
+      border:1px solid #333;
+      color:white;
+      padding:10px 12px;
+      border-radius:12px;
+      font-weight:700;
+      cursor:pointer;
+      text-align:center;
+      font-size:0.9rem;
+    }
+    .pill-btn.active { border-color: var(--accent-blue); }
+
+    .mini-btn {
+      background: rgba(10, 132, 255, 0.14);
+      border: 1px solid rgba(10, 132, 255, 0.35);
+      color: var(--accent-blue);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      width: 100%;
+      cursor: pointer;
+      margin-top: 12px;
+    }
+    .mini-btn:active { transform: scale(0.99); }
+
+    .event-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+    .event-item { border: 1px solid #2f2f32; border-radius: 14px; padding: 12px; background: rgba(255,255,255,0.02); }
+    .event-item .row { display: flex; gap: 10px; }
+    .event-item .row .input-group { flex: 1; }
+    .event-item .remove-btn {
+      background: transparent;
+      border: 1px solid #444;
+      color: var(--text-secondary);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    /* Standardized Modal Styles */
+    .app-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 12000;
+      padding: 18px;
+      backdrop-filter: blur(4px);
+    }
+    .app-modal .modal-card {
+      width: 100%;
+      max-width: 720px;
+      background: #101010;
+      border: 1px solid #333;
+      border-radius: 16px;
+      padding: 18px;
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.8);
+      display: flex;
+      flex-direction: column;
+    }
+    .app-modal .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #222;
+    }
+    .app-modal .modal-title { font-size: 1.1rem; font-weight: 800; color: white; }
+    .app-modal .modal-close {
+      background: #333;
+      border: none;
+      color: white;
+      border-radius: 8px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+    .app-modal .modal-body { color: #ccc; line-height: 1.6; font-size: 0.95rem; }
+    .app-modal .modal-body p { margin-bottom: 12px; }
+
+    .read-overview-btn {
+      margin-top: 20px; /* FIX #5: increased spacing from enter button */
+      background: transparent;
+      color: rgba(255,255,255,0.85);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .hidden { display: none !important; }
+    .view { display: block; }
+    .view:not(.active) { display: none; }
+
+    .build-badge {
+      position: fixed;
+      right: 10px;
+      bottom: 10px;
+      font-size: 12px;
+      opacity: 0.6;
+      z-index: 9999;
+    }
+
+    /* 90-Day Progress Tracker */
+    .phase-tracker {
+      background: linear-gradient(135deg, #1C1C1E 0%, #2C2C2E 100%);
+      border: 1px solid #333;
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .phase-tracker::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent-color), var(--accent-blue), var(--lab-purple));
+    }
+    .phase-tracker-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .phase-tracker-day {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--accent-color);
+      letter-spacing: -0.5px;
+    }
+    .phase-tracker-day .of-total {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .phase-tracker-badge {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .phase-tracker-badge.phase-0 { background: rgba(255, 214, 10, 0.15); color: #FFD60A; border: 1px solid rgba(255, 214, 10, 0.3); }
+    .phase-tracker-badge.phase-1 { background: rgba(48, 209, 88, 0.15); color: var(--accent-color); border: 1px solid rgba(48, 209, 88, 0.3); }
+    .phase-tracker-badge.phase-2 { background: rgba(10, 132, 255, 0.15); color: var(--accent-blue); border: 1px solid rgba(10, 132, 255, 0.3); }
+    .phase-tracker-badge.phase-3 { background: rgba(191, 90, 242, 0.15); color: var(--lab-purple); border: 1px solid rgba(191, 90, 242, 0.3); }
+    .phase-tracker-badge.phase-done { background: rgba(48, 209, 88, 0.2); color: var(--accent-color); border: 1px solid rgba(48, 209, 88, 0.4); }
+    .phase-tracker-badge.phase-pre { background: rgba(142, 142, 147, 0.15); color: var(--text-secondary); border: 1px solid rgba(142, 142, 147, 0.3); }
+    .phase-tracker-title {
+      font-size: 0.85rem;
+      color: #ccc;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .phase-tracker-bar-bg {
+      height: 8px;
+      background: #333;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .phase-tracker-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.6s ease;
+      background: linear-gradient(90deg, var(--accent-color), var(--accent-blue));
+    }
+    .phase-tracker-bar-fill.phase-0-fill { background: linear-gradient(90deg, #FFD60A, var(--accent-color)); }
+    .phase-tracker-bar-fill.phase-2-fill { background: linear-gradient(90deg, var(--accent-blue), var(--lab-purple)); }
+    .phase-tracker-bar-fill.phase-3-fill { background: linear-gradient(90deg, var(--lab-purple), var(--accent-color)); }
+    .phase-tracker-bar-fill.phase-done-fill { background: var(--accent-color); }
+    .phase-tracker-phases {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+    }
+    .phase-tracker-phases span.active-phase { color: #fff; font-weight: 700; }
+    .phase-tracker-start {
+      margin-top: 12px;
+      text-align: center;
+    }
+    .phase-tracker-start-btn {
+      background: rgba(48, 209, 88, 0.12);
+      border: 1px solid rgba(48, 209, 88, 0.3);
+      color: var(--accent-color);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      width: 100%;
+    }
+    .phase-tracker-start-btn:active { transform: scale(0.98); }
+    .phase-tracker-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+    .phase-tracker-reset {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      cursor: pointer;
+      padding: 0;
+      margin-top: 8px;
+      text-decoration: underline;
+      opacity: 0.7;
+    }
+    .phase-tracker-reset:hover { opacity: 1; }
+    .phase-tracker-info-btn {
+      background: none;
+      border: 1px solid #444;
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      font-weight: 700;
+      border-radius: 8px;
+      padding: 4px 10px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .phase-tracker-info-btn:hover { border-color: #666; color: #fff; }
+    /* Roadmap Modal */
+    #roadmap-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 10000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    #roadmap-modal .roadmap-card {
+      background: #1C1C1E;
+      border: 1px solid #333;
+      border-radius: 16px;
+      max-width: 600px;
+      width: 100%;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 24px;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    #roadmap-modal .roadmap-card::-webkit-scrollbar { display: none; }
+    #roadmap-modal h2 { font-size: 1.2rem; margin: 0 0 16px; color: #fff; }
+    #roadmap-modal h3 { font-size: 1rem; margin: 18px 0 8px; font-weight: 700; }
+    #roadmap-modal h3.rm-p1 { color: var(--accent-color); }
+    #roadmap-modal h3.rm-p2 { color: var(--accent-blue); }
+    #roadmap-modal h3.rm-p3 { color: var(--lab-purple); }
+    #roadmap-modal p, #roadmap-modal li { font-size: 0.85rem; color: #ccc; line-height: 1.55; }
+    #roadmap-modal ul { padding-left: 18px; margin: 6px 0; }
+    #roadmap-modal li { margin-bottom: 4px; }
+    #roadmap-modal .rm-close-btn {
+      display: block;
+      width: 100%;
+      margin-top: 20px;
+      padding: 12px;
+      background: rgba(48, 209, 88, 0.12);
+      border: 1px solid rgba(48, 209, 88, 0.3);
+      color: var(--accent-color);
+      font-weight: 700;
+      font-size: 0.9rem;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    #roadmap-modal .rm-section { border-top: 1px solid #333; padding-top: 14px; }
+  
+    #trends-charts-pane canvas{ width:100% !important; height:220px !important; display:block; }
+  
+/* Auth + build badge */
+#auth-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0,0,0,0.65);
+}
+#auth-overlay[hidden]{ display: none !important; }
+#auth-card{
+  width: min(520px, 100%);
+  background: #121417;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px;
+  padding: 18px 18px 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+  color: #fff;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
+#auth-card h2{ margin: 0 0 6px; font-size: 18px; }
+#auth-card p{ margin: 0 0 12px; opacity: 0.85; font-size: 13px; line-height: 1.35; }
+#auth-card label{ display:block; font-size: 12px; margin: 10px 0 6px; opacity: 0.9; }
+#auth-card input{
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  outline: none;
+}
+#auth-card .row{ display:flex; gap:10px; margin-top: 12px; }
+#auth-card button{
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 0;
+  cursor: pointer;
+  background: #2b6cb0;
+  color: #fff;
+  font-weight: 600;
+}
+#auth-card button.secondary{ background: rgba(255,255,255,0.10); }
+#auth-error{ margin-top: 10px; font-size: 12px; color: #ffb3b3; min-height: 16px; }
+#build-badge{
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  z-index: 99998;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: rgba(0,0,0,0.55);
+  color: rgba(255,255,255,0.9);
+  border: 1px solid rgba(255,255,255,0.12);
+  backdrop-filter: blur(6px);
+}
+
+@media (max-width: 520px) {
+  .modal-body {
+    max-height: 72vh !important;
+  }
+}
+
+.modal-body { position: relative; }
+#overview-modal .scroll-hint-chevron,
+#dev-modal .scroll-hint-chevron {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  bottom: auto;
+  width: 28px;
+  height: 28px;
+  opacity: 0.75;
+  pointer-events: none;
+  animation: scrollHintBob 1.6s ease-in-out infinite;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.45));
+}
+.scroll-hint-hidden .scroll-hint-bar,
+.scroll-hint-hidden .scroll-hint-chevron {
+  opacity: 0;
+  animation: none;
+}
+@keyframes scrollHintBob {
+  0%, 100% { transform: translateY(-50%); }
+  50% { transform: translateY(calc(-50% + 6px)); }
+}
+
+body.modal-open {
+  overflow: hidden;
+  height: 100vh;
+  touch-action: none;
+}
+
+.scroll-chevron {
+  position: absolute;
+  right: 22px;
+  bottom: 20px;
+  font-size: 26px;
+  font-weight: 800;
+  opacity: 0.85;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.scroll-chevron.hidden { opacity: 0; }
+.modal-content { position: relative; padding-bottom: 56px; }
+
+/* --- REPORT VIEW & PRINT STYLES --- */
+/* FIX #4: removed height:100vh and overflow:auto — these cause iOS Safari to truncate PDFs */
+#report-view {
+  display: none;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: auto;
+  overflow: visible;
+  z-index: 99999;
+  background: #ffffff;
+  color: #000000;
+  padding: 20px;
+  font-family: 'Inter', sans-serif;
+}
+
+.report-header {
+  border-bottom: 2px solid #000;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+}
+.report-header h1 { font-size: 24px; margin: 0 0 5px 0; font-weight: 800; color: #000; }
+.report-header p { margin: 2px 0; font-size: 12px; color: #333; }
+.report-credit{font-weight:600;}
+
+.report-day-block {
+  page-break-after: always;
+  margin-bottom: 30px;
+}
+.report-day-block:last-child { page-break-after: auto; }
+
+.day-title {
+  background: #f0f0f5;
+  padding: 10px;
+  font-size: 18px;
+  font-weight: 800;
+  border-left: 4px solid var(--accent-blue);
+  margin-bottom: 15px;
+}
+
+.report-section { margin-bottom: 15px; }
+.report-section h3 {
+  font-size: 14px;
+  color: var(--accent-blue);
+  border-bottom: 1px solid #eee;
+  padding-bottom: 4px;
+  margin: 0 0 8px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.report-section p { margin: 4px 0; font-size: 13px; line-height: 1.4; color: #111; }
+.report-section ul { margin: 4px 0; padding-left: 20px; font-size: 13px; }
+.report-section li { margin-bottom: 3px; }
+
+/* FIX #4: iOS Safari print — never print from scroll containers */
+@media print {
+  body * { visibility: hidden; }
+  body { background: #fff; margin: 0; padding: 0; overflow: visible !important; }
+  #app-container { display: none !important; }
+  #report-view, #report-view * { visibility: visible; }
+  #report-view {
+    display: block !important;
+    position: static !important;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+}
+
+/* FIX #5: Splash credits — attribution pinned at bottom with proper spacing */
+.splash-credits{
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 22px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.55;
+  color: rgba(255,255,255,0.75);
+  pointer-events: none;
+}
+.splash-credits-site{ opacity: 0.9; }
+
+</style>
+<script>
+    function byId(id){ return document.getElementById(id); }
+    function safeAdd(el, cls){ if(el && cls) el.classList.add(cls); }
+    function safeRemove(el, cls){ if(el && cls) el.classList.remove(cls); }
+
+    window.setActiveView = function(viewId) {
+      ['selection-view','patrick-view','nieve-view','trends-view'].forEach(id => {
+        const el = byId(id);
+        if (!el) return;
+        safeRemove(el, 'active');
+        safeAdd(el, 'hidden');
+      });
+      const target = byId(viewId);
+      if (target) {
+        safeAdd(target, 'active');
+        safeRemove(target, 'hidden');
+      }
+      window.scrollTo(0,0);
+    };
+
+    window.enterApp = function() {
+      const splash = byId('splash-overlay');
+      if (splash) {
+        safeAdd(splash, 'fade-out');
+        setTimeout(() => { splash.style.display = 'none'; }, 700);
+      }
+      window.setActiveView('selection-view');
+    };
+
+    window.selectProfile = function(profile) {
+      window.ACTIVE_PROFILE = profile;
+      if (profile === 'patrick') {
+        window.setActiveView('patrick-view');
+        const dateP = byId('date-display-p');
+        if (dateP) dateP.innerText = new Date().toDateString();
+      } else if (profile === 'nieve') {
+        window.setActiveView('nieve-view');
+      }
+    };
+
+    window.goBack = function() {
+      const trends = byId('trends-view');
+      if (trends && trends.classList.contains('active')) {
+        window.setActiveView('patrick-view');
+        return;
+      }
+      window.setActiveView('selection-view');
+    };
+
+    window.openTrends = function() {
+      window.setActiveView('trends-view');
+      if (typeof window.renderTrends === "function") window.renderTrends();
+    };
+
+    window.closeAllModals = function() {
+        ['overview-modal', 'export-modal', 'dev-modal'].forEach(id => {
+            const m = byId(id);
+            if(m) m.style.display = 'none';
+        });
+    };
+
+    window.toggleOverview = function(show) {
+      window.closeAllModals();
+      const m = byId('overview-modal');
+      if(m && show) m.style.display = 'flex';
+    };
+
+    window.openDevModal = function() {
+        window.closeAllModals();
+        const m = byId('dev-modal');
+        if(m) m.style.display = 'flex';
+    };
+
+    // Export Helpers
+    function toISODate(d){
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      return `${y}-${m}-${day}`;
+    }
+
+    function normalizeDateInput(val){
+      if(!val) return '';
+      const s = String(val).trim();
+      if(!s) return '';
+      if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+      const m1 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if(m1){
+        const mm = String(m1[1]).padStart(2,'0');
+        const dd = String(m1[2]).padStart(2,'0');
+        const yyyy = m1[3];
+        return `${yyyy}-${mm}-${dd}`;
+      }
+      const d = new Date(s);
+      if(!isNaN(d.getTime())) return toISODate(d);
+      return '';
+    }
+
+    window.openExportModal = function(target){
+      window.closeAllModals();
+      window.__EXPORT_TARGET = target;
+      const modal = byId('export-modal');
+      const title = byId('export-title');
+      const start = byId('export-start');
+      const end = byId('export-end');
+      const order = byId('export-order');
+
+      if(title) title.textContent = `Export ${target?.label || 'History'} (PDF)`;
+      const today = new Date();
+      const startD = new Date();
+      startD.setDate(today.getDate() - 29); 
+      if(start) start.value = toISODate(startD);
+      if(end) end.value = toISODate(today);
+      if(order && !order.value) order.value = 'desc';
+
+      const pn = byId('export-patient-name');
+      const dob = byId('export-patient-dob');
+      const lsNameKey = `patient_name_${target?.patientId || 'unknown'}`;
+      const lsDobKey = `patient_dob_${target?.patientId || 'unknown'}`;
+      const defaultName = (target?.patientId === 'patrick') ? 'Patrick Fuellbeck' : (target?.patientId === 'nieve' ? 'Nieve' : '');
+      try {
+        if (pn) pn.value = localStorage.getItem(lsNameKey) || defaultName;
+        if (dob) dob.value = localStorage.getItem(lsDobKey) || '';
+      } catch(e) {}
+
+      if(modal) modal.style.display = 'flex';
+    };
+
+    window.closeExportModal = function(){
+      const modal = byId('export-modal');
+      if(modal) modal.style.display = 'none';
+    };
+
+    window.runExportFromModal = async function(){
+      const target = window.__EXPORT_TARGET || { patientId: 'patrick', label: 'Pilot' };
+      const startRaw = byId('export-start')?.value;
+      const endRaw = byId('export-end')?.value;
+      const dir = byId('export-order')?.value || 'desc';
+      const start = normalizeDateInput(startRaw);
+      const end = normalizeDateInput(endRaw);
+      if(!start || !end){ alert('Please select a start and end date.'); return; }
+      if(start > end){ alert('Start date must be on or before end date.'); return; }
+
+      const patientName = byId('export-patient-name')?.value?.trim() || '';
+      const dobEl = byId('export-patient-dob');
+      let patientDob = dobEl?.value?.trim() || '';
+
+      if (patientDob) {
+        const digits = String(patientDob).replace(/\D/g, '');
+        if (digits.length === 8) {
+          patientDob = `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+          if (dobEl) dobEl.value = patientDob;
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(patientDob)) {
+          alert('DOB must be in YYYY-MM-DD format.');
+          return;
+        }
+      }
+      try {
+        const nameKey = `patient_name_${target.patientId}`;
+        const dobKey = `patient_dob_${target.patientId}`;
+        if (patientName) localStorage.setItem(nameKey, patientName);
+        else localStorage.removeItem(nameKey);
+        if (patientDob) localStorage.setItem(dobKey, patientDob);
+        else localStorage.removeItem(dobKey);
+      } catch(e) { /* ignore */ }
+
+      if(typeof window.__EXPORT_RUN !== 'function'){
+        alert('Export is not ready yet (export module not loaded).');
+        return;
+      }
+
+      const btn = byId('export-run-btn');
+      if(btn){ btn.disabled = true; btn.textContent = 'GENERATING...'; }
+      try{
+        const printWin = window.open("", "_blank");
+        if(!printWin){
+          alert("Popup blocked. Please allow popups for this site to export PDF.");
+          return;
+        }
+        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, start, end, dir, patientName, patientDob, printWindow: printWin });
+        window.closeExportModal();
+      } catch(e){
+        console.error(e);
+        alert('Export failed. Check console for details.');
+      } finally {
+        if(btn){ btn.disabled = false; btn.textContent = 'Generate PDF'; }
+      }
+    };
+
+    // DOB auto-format
+    (function attachDobFormatter(){
+      const el = byId('export-patient-dob');
+      if (!el) return;
+      const format = (raw) => {
+        const digits = String(raw || '').replace(/\D/g, '').slice(0, 8);
+        if (digits.length <= 4) return digits;
+        if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+        return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
+      };
+      const handler = () => {
+        const before = el.value;
+        const after = format(before);
+        if (after === before) return;
+        const atEnd = (el.selectionStart === before.length);
+        el.value = after;
+        if (atEnd) {
+          const pos = after.length;
+          try { el.setSelectionRange(pos, pos); } catch (_) {}
+        }
+      };
+      el.addEventListener('input', handler);
+      el.addEventListener('blur', handler);
+    })();
+
+    window.updateSlider = function(element, outId) {
+      if (typeof element === 'string') element = document.getElementById(element);
+      if (!element) return;
+      try { element.previousElementSibling.querySelector('.slider-val').innerText = element.value; } catch(e) {}
+      if (outId) {
+        const outEl = document.getElementById(outId);
+        if (outEl) outEl.innerText = String(element.value);
+      }
+      if (!element.max) return;
+      var min = parseFloat(element.min || "0");
+      var max = parseFloat(element.max || "100");
+      var val = parseFloat(element.value || "0");
+      var pct = ((val - min) / (max - min)) * 100;
+      element.style.background = "linear-gradient(to right, var(--accent-blue) 0%, var(--accent-blue) " + pct + "%, #444 " + pct + "%, #444 100%)";
+    };
+
+    window.toggleSafetyBox = function() {
+      const checkBox = byId("n-safety");
+      const box = byId("n-safety-box");
+      if (!checkBox || !box) return;
+      if (checkBox.checked) {
+        box.classList.add("visible-box");
+        box.style.display = "block";
+      } else {
+        box.classList.remove("visible-box");
+        box.style.display = "none";
+      }
+    };
+
+    window.resetPilotForm = function() {
+      const form = byId("patrick-form");
+      if (!form) return;
+      form.reset();
+      try { window.setNeuromuscularTraining(0, "none"); } catch(e){}
+      const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML = '';
+      const pos = document.getElementById('p-positive-events'); if (pos) pos.innerHTML = '';
+      Array.from(form.querySelectorAll('input[type="range"]')).forEach(r => window.updateSlider(r));
+      try { window.clearDraft(); } catch(e){}
+      window.scrollTo(0,0);
+    };
+
+    // --- 120-DAY PROTOCOL PROGRESS TRACKER ---
+    (function initPhaseTracker() {
+      const LS_KEY = 'amn_protocol_start_date';
+
+      const TOTAL_DAYS = 120;
+      const PHASES = [
+        { num: 0, name: 'Baseline Observation (No NA)', range: [1, 30], cls: 'phase-0', fillCls: 'phase-0-fill' },
+        { num: 1, name: 'Tolerability & Baseline Lock', range: [31, 60], cls: 'phase-1', fillCls: '' },
+        { num: 2, name: 'Signal Detection', range: [61, 90], cls: 'phase-2', fillCls: 'phase-2-fill' },
+        { num: 3, name: 'Confirmation & Passenger Decision', range: [91, 120], cls: 'phase-3', fillCls: 'phase-3-fill' }
+      ];
+
+      function getStartDate() {
+        try { return localStorage.getItem(LS_KEY) || ''; } catch(e) { return ''; }
+      }
+
+      function setStartDateLocal(dateStr) {
+        try { localStorage.setItem(LS_KEY, dateStr); } catch(e) {}
+      }
+
+      function removeStartDateLocal() {
+        try { localStorage.removeItem(LS_KEY); } catch(e) {}
+      }
+
+      // Firestore sync helpers (called after Firebase is ready)
+      function saveToFirestore(dateStr) {
+        try {
+          if (window.CURRENT_UID && typeof firebase !== 'undefined' && firebase.firestore) {
+            firebase.firestore().collection('users').doc(window.CURRENT_UID)
+              .collection('settings').doc('protocol')
+              .set({ startDate: dateStr, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+          }
+        } catch(e) { console.warn('Phase tracker Firestore save failed:', e); }
+      }
+
+      function removeFromFirestore() {
+        try {
+          if (window.CURRENT_UID && typeof firebase !== 'undefined' && firebase.firestore) {
+            firebase.firestore().collection('users').doc(window.CURRENT_UID)
+              .collection('settings').doc('protocol')
+              .update({ startDate: firebase.firestore.FieldValue.delete(), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+          }
+        } catch(e) { console.warn('Phase tracker Firestore remove failed:', e); }
+      }
+
+      // Pull from Firestore on login — Firestore wins if localStorage is empty
+      window.__phaseTrackerSyncFromFirestore = async function() {
+        try {
+          if (!window.CURRENT_UID || typeof firebase === 'undefined') return;
+          const doc = await firebase.firestore().collection('users').doc(window.CURRENT_UID)
+            .collection('settings').doc('protocol').get();
+          if (doc.exists && doc.data()?.startDate) {
+            const remoteDate = doc.data().startDate;
+            const localDate = getStartDate();
+            if (!localDate) {
+              setStartDateLocal(remoteDate);
+              render();
+            } else if (localDate !== remoteDate) {
+              saveToFirestore(localDate);
+            }
+          } else if (getStartDate()) {
+            saveToFirestore(getStartDate());
+          }
+        } catch(e) { console.warn('Phase tracker Firestore sync failed:', e); }
+      };
+
+      function daysBetween(startStr) {
+        const start = new Date(startStr + 'T00:00:00');
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        return Math.floor((today - startDay) / 86400000) + 1;
+      }
+
+      function formatDate(dateStr) {
+        if (!dateStr) return '—';
+        const d = new Date(dateStr + 'T00:00:00');
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+      }
+
+      function addDays(dateStr, days) {
+        const d = new Date(dateStr + 'T00:00:00');
+        d.setDate(d.getDate() + days);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      }
+
+      function render() {
+        const tracker = byId('phase-tracker');
+        const setup = byId('phase-tracker-setup');
+        const active = byId('phase-tracker-active');
+        if (!tracker || !setup || !active) return;
+
+        const startDate = getStartDate();
+        if (!startDate) {
+          setup.style.display = 'block';
+          active.style.display = 'none';
+          const input = byId('phase-tracker-date-input');
+          if (input && !input.value) {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            input.value = `${y}-${m}-${d}`;
+          }
+          return;
+        }
+
+        setup.style.display = 'none';
+        active.style.display = 'block';
+
+        const currentDay = daysBetween(startDate);
+        const clampedDay = Math.max(0, Math.min(currentDay, TOTAL_DAYS));
+        const pct = Math.min(100, Math.max(0, (clampedDay / TOTAL_DAYS) * 100));
+
+        const dayEl = byId('pt-current-day');
+        if (dayEl) dayEl.textContent = currentDay <= 0 ? 'Pre' : (currentDay > TOTAL_DAYS ? TOTAL_DAYS + '+' : String(currentDay));
+
+        // Determine phase
+        let phase = null;
+        if (currentDay <= 0) {
+          phase = { num: -1, name: 'Pre-Launch', cls: 'phase-pre', fillCls: '' };
+        } else if (currentDay > TOTAL_DAYS) {
+          phase = { num: 99, name: 'Protocol Complete', cls: 'phase-done', fillCls: 'phase-done-fill' };
+        } else {
+          phase = PHASES.find(p => currentDay >= p.range[0] && currentDay <= p.range[1]) || PHASES[0];
+        }
+
+        const badge = byId('pt-badge');
+        if (badge) {
+          badge.className = 'phase-tracker-badge ' + phase.cls;
+          badge.textContent = phase.num === -1 ? 'Pre-Launch' : (phase.num === 99 ? 'Complete' : (phase.num === 0 ? 'Phase 0' : 'Phase ' + phase.num));
+        }
+
+        const title = byId('pt-phase-title');
+        if (title) title.textContent = phase.name;
+
+        const bar = byId('pt-bar');
+        if (bar) {
+          bar.style.width = pct + '%';
+          bar.className = 'phase-tracker-bar-fill ' + (phase.fillCls || '');
+        }
+
+        // Highlight active phase label
+        for (let i = 0; i <= 3; i++) {
+          const label = byId('pt-label-' + i);
+          if (label) {
+            if (phase.num === i) label.classList.add('active-phase');
+            else label.classList.remove('active-phase');
+          }
+        }
+
+        const startLabel = byId('pt-start-label');
+        if (startLabel) startLabel.textContent = 'Started: ' + formatDate(startDate);
+
+        const endLabel = byId('pt-end-label');
+        if (endLabel) endLabel.textContent = 'Ends: ' + formatDate(addDays(startDate, TOTAL_DAYS - 1));
+      }
+
+      window.setProtocolStartDate = function() {
+        const input = byId('phase-tracker-date-input');
+        if (!input || !input.value) { alert('Please select a start date.'); return; }
+        setStartDateLocal(input.value);
+        saveToFirestore(input.value);
+        render();
+      };
+
+      window.resetProtocolStartDate = function() {
+        if (!confirm('Reset your protocol start date? This only resets the tracker, not your logged data.')) return;
+        removeStartDateLocal();
+        removeFromFirestore();
+        render();
+      };
+
+      window.showRoadmapModal = function() {
+        const m = byId('roadmap-modal');
+        if (m) m.style.display = 'flex';
+      };
+      window.hideRoadmapModal = function() {
+        const m = byId('roadmap-modal');
+        if (m) m.style.display = 'none';
+      };
+
+      // Re-render when pilot view is shown
+      const origSelectProfile = window.selectProfile;
+      window.selectProfile = function(profile) {
+        origSelectProfile(profile);
+        if (profile === 'patrick') render();
+      };
+
+      // Initial render on page load
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', render);
+      } else {
+        render();
+      }
+    })();
+  </script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<style id="overview-tightening">
+#overview-modal .modal-body { line-height: 1.42; }
+#overview-modal p { margin: 0 0 12px 0; }
+</style>
+<style id="dev-modal-scrollbar-hide">
+#dev-modal .modal-body, #overview-modal .modal-body { scrollbar-width: none; -ms-overflow-style: none; }
+#dev-modal .modal-body::-webkit-scrollbar, #overview-modal .modal-body::-webkit-scrollbar { display: none; }
+</style>
+</head>
+<body>
+<div id="report-view"></div>
+
+<!-- FIX #4: Auth overlay now uses a proper HTML form for iOS autofill reliability -->
+<div id="auth-overlay">
+<div id="auth-card">
+<h2>Sign in</h2>
+<p>Sign in once on this device to sync and protect your logs.</p>
+<!-- FIX #4: Wrapped in <form> with autocomplete attributes to prevent iOS autofill loop -->
+<form id="auth-form" autocomplete="on" onsubmit="return false;" action="#">
+<label for="auth-email">Email</label>
+<input autocomplete="username email" id="auth-email" inputmode="email" type="email" name="email"/>
+<label for="auth-pass">Password</label>
+<input autocomplete="current-password" id="auth-pass" type="password" name="password"/>
+<div class="row">
+<button id="auth-signin" type="submit">Sign in</button>
+<button class="secondary" id="auth-signup" type="button">Create account</button>
+</div>
+<div class="row" style="margin-top:10px;">
+<button class="secondary" id="auth-demo" style="width:100%;" type="button">View demo (read-only)</button>
+</div>
+</form>
+<div id="auth-error"></div>
+</div>
+</div>
+
+<div id="splash-overlay">
+<img alt="Pioneer Icon" class="hero-icon" src="icon.png"/>
+<h1>THE AMN DUAL-MECHANISM<br/>SUPPORT PROTOCOL</h1>
+<p class="title-sub">A Structured Approach to Redox Stabilization, Axonal Preservation,<br/>and Exploratory Myelin Support</p>
+<button class="enter-btn" onclick="window.enterApp()">Enter Protocol</button>
+<button class="read-overview-btn" id="read-overview-btn" onclick="window.toggleOverview(true)" type="button">Why this protocol exists</button>
+<!-- FIX #5: Attribution moved to clearly separated bottom area -->
+<div class="splash-credits">
+  Researched and Prepared by<br/>
+  <strong>Patrick Shipp Nutrition, RNCP</strong><br/>
+  <span class="splash-credits-site">www.patrickshipp.com</span>
+</div>
+</div>
+
+<div aria-modal="true" class="app-modal" id="overview-modal" role="dialog">
+<div class="modal-card">
+<div class="modal-header">
+<div class="modal-title">What this protocol is</div>
+<button class="modal-close" onclick="window.closeAllModals()" type="button">Close</button>
+</div>
+<div class="modal-body">
+<div aria-hidden="true" class="scroll-hint-chevron">
+<svg fill="none" height="28" viewbox="0 0 24 24" width="28" xmlns="http://www.w3.org/2000/svg">
+<path d="M7 10l5 5 5-5" stroke="rgba(255,255,255,0.75)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4"></path>
+</svg>
+</div>
+<p><strong>Purpose.</strong> This protocol is a structured framework for improving functional stability in adrenomyeloneuropathy by reducing biological stress on vulnerable neural pathways.</p>
+<p><strong>What it is not.</strong> It does not claim a cure, reversal of established damage, or forced regeneration. The working target is margin: preserving what remains and reducing secondary injury.</p>
+<p><strong>Why this is different.</strong> Many treatments reduce symptoms downstream without changing the underlying strain. This approach focuses on upstream environment optimization: oxidative load, metabolic reliability, and inflammatory pressure. The aim is to reduce background instability rather than temporarily suppress expression.</p>
+<p><strong>How we know whether it helps.</strong> The model relies on repeated, standardized checks compared against baseline. Functional test outputs are tracked alongside symptom domains such as pain, stiffness, fatigue, and sleep disruption. Changes are interpreted over weeks, not days, and are considered meaningful only when directionally consistent across more than one measure. Contextual variables such as stress, illness, GI upset, and medication adjustments are logged to reduce false attribution.</p>
+</div>
+</div>
+</div>
+
+<div aria-modal="true" class="app-modal" id="export-modal" role="dialog">
+<div class="modal-card">
+<div class="modal-header">
+<div class="modal-title" id="export-title">Export History (PDF)</div>
+<button class="modal-close" onclick="window.closeAllModals()" type="button">Close</button>
+</div>
+<div class="modal-body">
+<div class="row2" style="display:flex; gap:12px;">
+<div class="input-group"><label>Start date</label><input id="export-start" type="date"/></div>
+<div class="input-group"><label>End date</label><input id="export-end" type="date"/></div>
+</div>
+<div class="row2" style="display:flex; gap:12px; margin-top:12px;">
+<div class="input-group" style="flex:2;">
+<label>Patient name (for PDF header)</label>
+<input id="export-patient-name" placeholder="Patrick Fuellbeck" type="text"/>
+</div>
+<div class="input-group" style="flex:1;">
+<label>DOB (YYYY-MM-DD)</label>
+<input id="export-patient-dob" inputmode="numeric" placeholder="YYYY-MM-DD" type="text"/>
+</div>
+</div>
+<div class="input-group" style="margin-top:10px;">
+<label>Sort order</label>
+<select id="export-order">
+<option selected="" value="desc">Newest first</option>
+<option value="asc">Oldest first</option>
+</select>
+</div>
+<div class="helper" style="margin-top:8px; font-size:0.85rem; color:#888;">Defaults to the last 30 days.</div>
+<button class="lab-save-btn" id="export-run-btn" onclick="window.runExportFromModal()" type="button">Generate PDF</button>
+</div>
+</div>
+</div>
+
+<div aria-modal="true" class="app-modal" id="dev-modal" role="dialog">
+<div class="modal-card">
+<div class="modal-header">
+<div class="modal-title">Protocol Development</div>
+<button class="modal-close" onclick="window.closeAllModals()" type="button">Close</button>
+</div>
+<div class="modal-body">
+<div aria-hidden="true" class="scroll-hint-chevron">
+<svg fill="none" height="28" viewbox="0 0 24 24" width="28" xmlns="http://www.w3.org/2000/svg">
+<path d="M7 10l5 5 5-5" stroke="rgba(255,255,255,0.75)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4"></path>
+</svg>
+</div>
+<h3 style="margin-top:0; color:#38bdf8; font-size:1.1rem; line-height:1.4;">PROTOCOL DEVELOPMENT, VALIDATION, AND STRUCTURAL FRAMEWORK</h3>
+<h4 style="color:#22c55e; margin-top:10px; margin-bottom:14px; font-size:0.95rem; font-weight:600; letter-spacing:0.4px;">
+Conceptual Foundation and Mechanistic Framework
+</h4>
+<p>This project was not assembled casually. It represents a structured, multi-layered effort conducted over an extended period of time to address a condition where large-scale translational research remains limited and long-term human trials are scarce.</p>
+<p>This protocol is structured around a dual-mechanism model targeting two core drivers of pathology: redox instability and lipid dysregulation. The redox axis is supported through coordinated use of alpha-lipoic acid, N-acetylcysteine, and vitamin E to stabilize oxidative stress and preserve axonal integrity. In parallel, nervonic acid is incorporated as a lipid-modulating component to support membrane composition and potentially influence very long chain fatty acid dynamics. Together, these components define the mechanistic foundation of the protocol.</p>
+<p>The following methodological steps were undertaken to construct this framework responsibly:</p>
+<p style="color:#aaa; font-size:0.92rem; line-height:1.5;">Within this framework, the term "dual mechanism" reflects the recognition that oxidative destabilization and lipid compositional imbalance represent distinct but interacting pathological processes. Redox stabilization and lipid substrate modulation are therefore approached as parallel axes rather than sequential steps, acknowledging that meaningful system-level stability requires addressing both domains simultaneously.</p>
+<hr style="border-color:#333; margin: 20px 0;"/>
+<h4 style="color:var(--accent-color); margin-bottom:10px;">1. Independent Literature Review</h4>
+<ul style="padding-left: 20px; color:#ccc; list-style-type:disc;">
+<li style="margin-bottom:6px;">Analysis of peer-reviewed research related to axonal degeneration and myelin biology.</li>
+<li style="margin-bottom:6px;">Review of mechanistic research relevant to very long-chain fatty acid metabolism.</li>
+<li style="margin-bottom:6px;">Research into the biology of the adult nervous system, including its structural limitations, regenerative constraints, and the realistic potential for functional recovery or structural repair.</li>
+<li>Evaluation of translational limits between animal models and human data.</li>
+</ul>
+<hr style="border-color:#333; margin: 20px 0;"/>
+<h4 style="color:var(--accent-color); margin-bottom:10px;">2. Mechanism Mapping</h4>
+<ul style="padding-left: 20px; color:#ccc; list-style-type:disc;">
+<li style="margin-bottom:6px;">Identification of oxidative and mitochondrial stress pathways that reduce axonal safety margin and inhibit oligodendrocyte stability.</li>
+<li style="margin-bottom:6px;">Examination of lipid metabolism and VLCFA accumulation mechanisms affecting membrane integrity and myelin structure.</li>
+<li style="margin-bottom:6px;">Formal separation of the two intervention axes that define the dual-mechanism model: (1) redox and metabolic stabilization and (2) lipid substrate support and VLCFA modulation.</li>
+<li>Deliberate distinction between preservation strategies and exploratory structural support.</li>
+</ul>
+<hr style="border-color:#333; margin: 20px 0;"/>
+<h4 style="color:var(--accent-color); margin-bottom:10px;">3. Supplier Identification and Process Transparency Review</h4>
+<ul style="padding-left: 20px; color:#ccc; list-style-type:disc;">
+<li style="margin-bottom:6px;">Determination of botanical source material (Acer truncatum).</li>
+<li style="margin-bottom:6px;">Research to identify a biotech supplier with documented production standards.</li>
+<li style="margin-bottom:6px;">Direct communication with the manufacturer.</li>
+<li style="margin-bottom:6px;">Review of extraction methodology.</li>
+<li>Review of available process documentation for internal consistency.</li>
+</ul>
+<hr style="border-color:#333; margin: 20px 0;"/>
+<h4 style="color:var(--accent-color); margin-bottom:10px;">4. Third-Party Laboratory Testing Plan</h4>
+<ul style="padding-left: 20px; color:#ccc; list-style-type:disc;">
+<li style="margin-bottom:6px;">Fatty acid profile confirmation.</li>
+<li style="margin-bottom:6px;">Purity testing.</li>
+<li style="margin-bottom:6px;">Heavy metal testing (ICP-MS).</li>
+<li style="margin-bottom:6px;">Residual solvent analysis.</li>
+<li>Independent third-party verification prior to use.</li>
+</ul>
+<hr style="border-color:#333; margin: 20px 0;"/>
+<h4 style="color:var(--accent-color); margin-bottom:10px;">5. Cost Modeling and Practical Feasibility</h4>
+<ul style="padding-left: 20px; color:#ccc; list-style-type:disc;">
+<li style="margin-bottom:6px;">Estimating the cost of each step required to conduct this project responsibly.</li>
+<li style="margin-bottom:6px;">Comparing retail versus direct sourcing pathways.</li>
+<li>Concluding that direct sourcing provided significantly greater long-term feasibility.</li>
+</ul>
+<hr style="border-color:#333; margin: 20px 0;"/>
+<h4 style="color:var(--accent-color); margin-bottom:10px;">6. Legal and Regulatory Review</h4>
+<ul style="padding-left: 20px; color:#ccc; list-style-type:disc;">
+<li style="margin-bottom:6px;">Consultation regarding representation of company status.</li>
+<li style="margin-bottom:6px;">Clarification on import classification.</li>
+<li>Review of labeling and disclosure practices.</li>
+</ul>
+<hr style="border-color:#333; margin: 20px 0;"/>
+<h4 style="color:var(--accent-color); margin-bottom:10px;">7. Data Infrastructure Development</h4>
+<ul style="padding-left: 20px; color:#ccc; list-style-type:disc;">
+<li style="margin-bottom:6px;">Custom protocol tracking interface.</li>
+<li style="margin-bottom:6px;">Pilot and Passenger separation logic within the tracking system.</li>
+<li style="margin-bottom:6px;">Structured PDF export system for documentation and longitudinal pattern analysis.</li>
+<li>Cloud storage independent of browser persistence.</li>
+</ul>
+<hr style="border-color:#333; margin: 20px 0;"/>
+<p>The Pilot is the primary subject (myself), who implements the full protocol first and confirms tolerability and safety metrics over time. The Passenger is my daughter, for whom any future use would be prophylactic and contingent on demonstrated safety in the Pilot phase. No crossover occurs without stability confirmation.</p>
+<p>This system exists to apply structured, translation-focused reasoning in an area where large-scale human research remains limited.</p>
+<p>It is structured, controlled, and documented.</p>
+</div>
+</div>
+</div>
+
+<div id="app-container">
+<section class="view active" id="selection-view">
+<div class="logo-area">
+<img alt="Pioneer Icon" class="menu-icon" src="icon.png"/>
+<h1>THE AMN DUAL-MECHANISM<br/>SUPPORT PROTOCOL</h1>
+<p class="title-sub">A Structured Approach to Redox Stabilization, Axonal Preservation,<br/>and Exploratory Myelin Support</p>
+</div>
+<details style="margin-bottom: 0;">
+<summary><div class="summary-text">Protocol Context<br/>&amp; References</div></summary>
+<div class="folder-content">
+<a class="report-link" href="docs/amn-family-overview.pdf" rel="noopener" target="_blank">
+<span class="report-icon">🧑‍👩‍👧‍👦</span><div><div>AMN Protocol – Family Overview</div><div class="report-sub">Plain-language overview</div></div>
+</a>
+<a class="report-link" href="docs/amn-clinical-reference.pdf" rel="noopener" target="_blank">
+<span class="report-icon">🩺</span><div><div>AMN Protocol – Clinical Reference</div><div class="report-sub">Technical reference</div></div>
+</a>
+<a class="report-link" href="docs/functional-recovery-amn.pdf" rel="noopener" target="_blank">
+<span class="report-icon">🧠</span><div><div>A Phenotype-Specific Framework for Functional Change in AMN</div><div class="report-sub">Case framework</div></div>
+</a>
+<a class="report-link" href="docs/protocol-governance-and-escalation-framework.pdf" rel="noopener" target="_blank">
+<span class="report-icon">🛡️</span><div><div>Protocol Governance &amp; Escalation</div><div class="report-sub">Safety thresholds and decision logic</div></div>
+</a>
+<a class="report-link secondary" href="docs/full-governence-risk-containment-framework.pdf" rel="noopener" target="_blank">
+<span class="report-icon">📄</span><div><div>Full Governance Risk Containment Framework</div><div class="report-sub">Companion document (expanded)</div></div>
+</a>
+<a class="report-link" href="https://elastic-amn-diagrams.netlify.app/" rel="noopener" target="_blank">
+<span class="report-icon">🔍</span><div><div>Functional Outcome Interpretation</div><div class="report-sub">Interactive logic tool</div></div>
+</a>
+</div>
+</details>
+<button class="black-btn" onclick="window.openDevModal()">Protocol Development &amp; Validation</button>
+<div class="profile-select">
+<button class="card-btn" onclick="window.selectProfile('patrick')">
+<h2>The Pilot</h2><p>Patrick • Safety &amp; Margin Protocol</p>
+</button>
+<button class="card-btn" onclick="window.selectProfile('nieve')">
+<h2>The Passenger</h2><p>Nieve • Prophylactic Protocol</p>
+</button>
+</div>
+</section>
+
+<section class="view hidden" id="patrick-view">
+<header>
+<button class="back-btn" onclick="window.goBack()">← Back</button>
+<img alt="Pioneer Icon" class="header-icon" src="icon.png"/>
+<h2>The Pilot</h2>
+</header>
+<p id="date-display-p" style="color:var(--text-secondary); margin-bottom:20px; font-size:0.9rem;"></p>
+
+<!-- 120-Day Protocol Progress Tracker -->
+<div class="phase-tracker" id="phase-tracker">
+<div id="phase-tracker-setup" style="display:none;">
+  <div style="text-align:center; margin-bottom:8px;">
+    <span style="font-size:0.9rem; font-weight:700; color:#ccc;">Set Protocol Start Date</span>
+  </div>
+  <div style="font-size:0.8rem; color:var(--text-secondary); text-align:center; margin-bottom:12px; line-height:1.4;">
+    Pick the date you begin (or began) the 120-day protocol run (30-day baseline + 90-day protocol).
+  </div>
+  <input type="date" id="phase-tracker-date-input" style="margin-bottom:10px;"/>
+  <button class="phase-tracker-start-btn" id="phase-tracker-set-btn" type="button" onclick="window.setProtocolStartDate()">Lock Start Date</button>
+</div>
+<div id="phase-tracker-active" style="display:none;">
+  <div class="phase-tracker-header">
+    <div class="phase-tracker-day">Day <span id="pt-current-day">0</span> <span class="of-total">of 120</span></div>
+    <div class="phase-tracker-badge phase-1" id="pt-badge">Phase 1</div>
+  </div>
+  <div class="phase-tracker-title" id="pt-phase-title">Tolerability &amp; Baseline Lock</div>
+  <div class="phase-tracker-bar-bg">
+    <div class="phase-tracker-bar-fill" id="pt-bar" style="width:0%;"></div>
+  </div>
+  <div class="phase-tracker-phases">
+    <span id="pt-label-0">Phase 0 (1–30)</span>
+    <span id="pt-label-1">Phase 1 (31–60)</span>
+    <span id="pt-label-2">Phase 2 (61–90)</span>
+    <span id="pt-label-3">Phase 3 (91–120)</span>
+  </div>
+  <div class="phase-tracker-meta">
+    <span id="pt-start-label">Started: —</span>
+    <span id="pt-end-label">Ends: —</span>
+  </div>
+  <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
+    <button class="phase-tracker-info-btn" type="button" onclick="window.showRoadmapModal()">View 120-Day Roadmap</button>
+    <button class="phase-tracker-reset" id="phase-tracker-reset-btn" type="button" onclick="window.resetProtocolStartDate()" style="margin-top:0;">Reset start date</button>
+  </div>
+</div>
+</div>
+
+<!-- 120-Day Roadmap Modal -->
+<div id="roadmap-modal" onclick="if(event.target===this)window.hideRoadmapModal()">
+<div class="roadmap-card">
+<h2>The 120-Day AMN Protocol Roadmap</h2>
+<p>A structured 120-day observation protocol: 30 days of baseline observation without Nervonic Acid (NA), followed by a 90-day treatment protocol. This design provides a clean comparison point so any changes after introducing NA can be measured against your true baseline.</p>
+
+<div class="rm-section">
+<h3 style="color:#FFD60A;">Phase 0: Baseline Observation &#8212; No NA (Days 1&#8211;30)</h3>
+<p><strong>Goal:</strong> Establish a clean 30-day baseline <em>without</em> Nervonic Acid (NA) supplementation. This period captures your natural symptom patterns, vitals, and functional performance so future changes can be measured against a true pre-treatment baseline.</p>
+<ul>
+<li><strong>No NA supplementation:</strong> Do not begin Nervonic Acid during this phase. Continue any other existing supplements as usual&#8212;the goal is to isolate NA as the variable introduced in Phase 1.</li>
+<li><strong>Daily logging:</strong> Record energy, cognition, gait, pain, mood, sleep quality, and any adverse or positive events every day. Consistency here is critical&#8212;this is your comparison dataset.</li>
+<li><strong>Vitals:</strong> Track weight, blood pressure, heart rate, and temperature as available.</li>
+<li><strong>Baseline labs:</strong> If possible, draw baseline bloodwork (VLCFA, cortisol, inflammatory markers, standard metabolic panel) during this window.</li>
+<li><strong>Functional tests:</strong> Complete at least one timed functional test (e.g., 6MW, 5x sit-to-stand) to anchor physical performance baseline.</li>
+<li><strong>Confounder tracking:</strong> Log sleep quality, stress, diet changes, and any other factors that could influence symptoms. This helps control for noise when comparing against later phases.</li>
+</ul>
+<p><strong>Exit criteria:</strong> 30 days of consistent logging without NA. Baseline data locked. Ready to introduce Nervonic Acid in Phase 1.</p>
+</div>
+
+<div class="rm-section">
+<h3 class="rm-p1">Phase 1: Tolerability &amp; NA Introduction (Days 31&#8211;60)</h3>
+<p><strong>Goal:</strong> Introduce Nervonic Acid (NA) and confirm the full supplement stack is well-tolerated. Compare early data against Phase 0 baseline.</p>
+<ul>
+<li><strong>Begin NA supplementation:</strong> Start Nervonic Acid at the planned dose. Log dose, timing, and any immediate reactions.</li>
+<li><strong>Daily logging:</strong> Continue recording all domains. Watch for any changes from your Phase 0 baseline patterns.</li>
+<li><strong>Vitals:</strong> Track weight, blood pressure, heart rate, and temperature as available.</li>
+<li><strong>Supplement adherence:</strong> Log each supplement taken (dose, timing). Mark any missed doses or changes.</li>
+<li><strong>Adverse event capture:</strong> Flag anything new or unusual, even if minor. Compare against Phase 0&#8212;is this new since starting NA?</li>
+<li><strong>Functional tests:</strong> Repeat the same timed tests from Phase 0 for early comparison.</li>
+</ul>
+<p><strong>Exit criteria:</strong> 30 days on NA with consistent logging. No unresolved safety concerns. Tolerability confirmed.</p>
+</div>
+
+<div class="rm-section">
+<h3 class="rm-p2">Phase 2: Signal Detection (Days 61&#8211;90)</h3>
+<p><strong>Goal:</strong> With tolerability established, begin watching for any early treatment signals&#8212;positive or negative&#8212;across subjective and objective domains, compared against Phase 0 baseline.</p>
+<ul>
+<li><strong>Continue daily logging:</strong> Same domains. Consistency matters&#8212;the value is in the trend line, not any single day.</li>
+<li><strong>Pattern review:</strong> At Day 75 and Day 90, review the data for emerging trends vs Phase 0. Is energy trending up? Gait stability improving or declining? Pain shifting?</li>
+<li><strong>Supplement adjustments:</strong> If Phase 1 was clean, consider any planned dose adjustments or additions per the protocol plan. Log changes carefully.</li>
+<li><strong>Repeat functional tests:</strong> Run the same timed tests for comparison against Phase 0 and Phase 1.</li>
+<li><strong>Mid-protocol labs:</strong> If feasible, repeat key bloodwork (especially VLCFA) around Day 75&#8211;90 to look for early metabolic signal.</li>
+</ul>
+<p><strong>Exit criteria:</strong> 60 days on NA (90 total). Initial signal assessment documented. Any concerning trends flagged for review.</p>
+</div>
+
+<div class="rm-section">
+<h3 class="rm-p3">Phase 3: Confirmation &amp; Passenger Decision (Days 91&#8211;120)</h3>
+<p><strong>Goal:</strong> Confirm or refute early signals. Build enough evidence to make an informed go/no-go decision on continuing, modifying, or stopping the protocol.</p>
+<ul>
+<li><strong>Continue daily logging:</strong> Push through to 120 days. The full dataset is the deliverable.</li>
+<li><strong>Deep trend analysis:</strong> Compare Phase 2&#8211;3 averages against Phase 0 baseline (no NA). This is the key comparison&#8212;what changed after introducing NA?</li>
+<li><strong>Final functional tests:</strong> Complete the same timed tests one more time. Four data points (Phase 0, 1, 2, 3) create a robust trend line.</li>
+<li><strong>End-of-protocol labs:</strong> Draw final bloodwork. Compare against Phase 0 baseline for objective biomarker movement.</li>
+<li><strong>Export &amp; review:</strong> Generate the full 120-day clinical export. Prepare a summary for your medical team if applicable.</li>
+<li><strong>Decision point:</strong> Based on the full evidence comparing NA vs no-NA periods: Continue the current protocol? Modify dosing? Add or remove supplements? Stop and reassess? The data speaks.</li>
+</ul>
+<p><strong>Exit criteria:</strong> 120 days complete. Full dataset exported. Decision documented.</p>
+</div>
+
+<button class="rm-close-btn" type="button" onclick="window.hideRoadmapModal()">Close</button>
+</div>
+</div>
+
+<form id="patrick-form">
+<details style="margin-bottom: 20px; margin-top: 0;">
+<summary><div class="summary-text">Protocol Context<br/>&amp; References</div></summary>
+<div class="folder-content">
+<a class="report-link" href="docs/amn-family-overview.pdf" rel="noopener" target="_blank">
+<span class="report-icon">🧑‍👩‍👧‍👦</span><div><div>AMN Protocol – Family Overview</div></div>
+</a>
+<a class="report-link" href="docs/amn-clinical-reference.pdf" rel="noopener" target="_blank">
+<span class="report-icon">🩺</span><div><div>AMN Protocol – Clinical Reference</div></div>
+</a>
+<a class="report-link" href="docs/functional-recovery-amn.pdf" rel="noopener" target="_blank">
+<span class="report-icon">🧠</span><div><div>Functional Framework</div></div>
+</a>
+<a class="report-link" href="docs/protocol-governance-and-escalation-framework.pdf" rel="noopener" target="_blank">
+<span class="report-icon">🛡️</span><div><div>Protocol Governance &amp; Escalation</div><div class="report-sub">Safety thresholds and decision logic</div></div>
+</a>
+<a class="report-link secondary" href="docs/full-governence-risk-containment-framework.pdf" rel="noopener" target="_blank">
+<span class="report-icon">📄</span><div><div>Full Governance Risk Containment Framework</div><div class="report-sub">Companion document (expanded)</div></div>
+</a>
+<a class="report-link" href="https://elastic-amn-diagrams.netlify.app/" rel="noopener" target="_blank">
+<span class="report-icon">🔍</span><div><div>Functional Outcome Interpretation</div><div class="report-sub">Interactive logic tool</div></div>
+</a>
+</div>
+</details>
+
+<div class="card">
+<h3>Daily Protocol</h3>
+<label class="checkbox-row"><span>Nervonic Acid (1g)</span><input checked="" id="p-nervonic" type="checkbox"/></label>
+<label class="checkbox-row"><span>Missed NA dose today</span><input id="p-na-missed" type="checkbox"/></label>
+<label class="checkbox-row"><span>NAC (2.4g)</span><input id="p-nac" type="checkbox"/></label>
+<label class="checkbox-row"><span>R-ALA (425mg)</span><input id="p-ala" type="checkbox"/></label>
+<label class="checkbox-row"><span>Vit E (Mixed - 400IU)</span><input id="p-vite" type="checkbox"/></label>
+</div>
+
+<div class="card">
+<h3>Morning Vitals</h3>
+<div class="input-row">
+<div class="input-group"><label>BP (Sys/Dia)</label><input id="p-morning-bp" placeholder="120/80" type="text"/></div>
+<div class="input-group"><label>HR (bpm)</label><input id="p-morning-hr" placeholder="60" type="number"/></div>
+</div>
+</div>
+
+<div class="card">
+<h3>Evening Vitals</h3>
+<div class="input-row">
+<div class="input-group"><label>BP (Sys/Dia)</label><input id="p-evening-bp" placeholder="120/80" type="text"/></div>
+<div class="input-group"><label>HR (bpm)</label><input id="p-evening-hr" placeholder="60" type="number"/></div>
+</div>
+</div>
+
+<div class="card">
+<h3>Global Baseline Rating</h3>
+<div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Overall comparison to your usual baseline for the day (big-picture).</div>
+<div class="two-col">
+<div>
+<div class="label">Compared to my usual baseline, today was</div>
+<select class="select" id="p-global-rating">
+<option value="">Select</option>
+<option value="much_worse">Much worse</option>
+<option value="worse">Worse</option>
+<option value="slightly_worse">Slightly worse</option>
+<option value="baseline">Baseline</option>
+<option value="slightly_better">Slightly better</option>
+<option value="better">Better</option>
+<option value="much_better">Much better</option>
+</select>
+</div>
+<div>
+<div class="label">Confidence</div>
+<select class="select" id="p-global-confidence">
+<option value="">Select</option>
+<option value="high">High</option>
+<option value="medium">Medium</option>
+<option value="low">Low</option>
+</select>
+<div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Confidence = how certain today's rating reflects your underlying neurologic state.</div>
+</div>
+</div>
+</div>
+
+<div class="card">
+<h3>Energy / Capacity</h3>
+<div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Energy/capacity = usable "gas in the tank". Neurologic fatigue is captured later under Symptom Shift.</div>
+<div class="row">
+<div>
+<div class="label" style="display:flex;justify-content:space-between;gap:12px;align-items:baseline;">
+<span>Usable energy / capacity (10 = best)</span>
+<span id="p-energy-capacity-value" style="font-weight:700;color:rgba(255,255,255,0.85);">5</span>
+</div>
+<input class="slider" data-out-id="p-energy-capacity-value" id="p-energy-capacity" max="10" min="0" oninput="window.updateSlider('p-energy-capacity','p-energy-capacity-value')" step="1" type="range" value="5"/>
+</div>
+</div>
+<div class="row">
+<div>
+<div class="label">Confidence</div>
+<select class="select" id="p-energy-confidence">
+<option value="">Select</option>
+<option value="high">High</option>
+<option value="medium">Medium</option>
+<option value="low">Low</option>
+</select>
+</div>
+</div>
+</div>
+
+<div class="card">
+<h3>Fast Markers</h3>
+<div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Quick yes/no events that are high-signal.</div>
+<label class="checkbox-row"><span>Near-fall or balance scare</span><input id="p-fast-nearfall" type="checkbox"/></label>
+<label class="checkbox-row"><span>Electrolyte rescue required</span><input id="p-fast-electrolyte" type="checkbox"/></label>
+<label class="checkbox-row"><span>Spasm or clonus episode</span><input id="p-fast-spasm" type="checkbox"/></label>
+<label class="checkbox-row"><span>Night pain woke me</span><input id="p-fast-nightpain" type="checkbox"/></label>
+<label class="checkbox-row"><span>Restless legs at night</span><input id="p-fast-restless" type="checkbox"/></label>
+</div>
+
+<div class="card">
+<h3>Pain Impact</h3>
+<div class="slider-header"><label>Pain impact (10 = Dominated the day)</label><span class="slider-val">0</span></div>
+<input id="p-painimpact" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="0"/>
+<div style="margin-top:10px; font-size:0.85rem; color:var(--text-secondary);">Interference</div>
+<label class="checkbox-row"><span>Interfered with sleep</span><input id="p-pain-sleep" type="checkbox"/></label>
+<label class="checkbox-row"><span>Limited walking</span><input id="p-pain-walk" type="checkbox"/></label>
+<label class="checkbox-row"><span>Forced extra rest breaks</span><input id="p-pain-rest" type="checkbox"/></label>
+<label class="checkbox-row"><span>Required additional meds or rescue</span><input id="p-pain-meds" type="checkbox"/></label>
+<label class="checkbox-row"><span>Changed gait mechanics</span><input id="p-pain-gait" type="checkbox"/></label>
+<div class="input-group" style="margin-top:15px;">
+<label>Primary pain driver today</label>
+<select id="p-pain-location">
+<option value="">Select</option>
+<option value="piriformis_glute">Piriformis or glute</option>
+<option value="low_back">Low back</option>
+<option value="hip">Hip</option>
+<option value="thigh">Thigh</option>
+<option value="calf">Calf</option>
+<option value="foot">Foot</option>
+<option value="other">Other</option>
+</select>
+</div>
+</div>
+
+<div class="card">
+<h3>Confounders (what changed today?)</h3>
+<div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Log non-protocol changes that may distort symptom interpretation today.</div>
+<label class="checkbox-row"><span>Poor sleep last night</span><input id="p-conf-sleep" type="checkbox"/></label>
+<label class="checkbox-row"><span>Unusual physical exertion</span><input id="p-conf-exertion" type="checkbox"/></label>
+<label class="checkbox-row"><span>Pharmacologic changes</span><input id="p-conf-pharm" type="checkbox"/></label>
+<div class="accordion-panel" id="p-conf-pharm-panel" style="display:none; margin:8px 0 4px 0; padding:10px 12px; border:1px solid rgba(255,255,255,0.08); border-radius:12px; background:rgba(255,255,255,0.03);">
+<label class="checkbox-row"><span>Medication timing change</span><input id="p-conf-medtiming" type="checkbox"/></label>
+<label class="checkbox-row"><span>Dose change</span><input id="p-conf-dosechange" type="checkbox"/></label>
+<label class="checkbox-row"><span>Missed dose</span><input id="p-conf-misseddose" type="checkbox"/></label>
+<label class="checkbox-row"><span>New supplement added</span><input id="p-conf-newsupp" type="checkbox"/></label>
+<label class="checkbox-row"><span>New medication added</span><input id="p-conf-newmed" type="checkbox"/></label>
+<div class="input-group" style="margin-top:10px;">
+<label>Notes (optional)</label>
+<input id="p-conf-pharm-notes" placeholder="e.g., shifted hydrocortisone timing, added magnesium, missed NAC..." type="text"/>
+</div>
+</div>
+<label class="checkbox-row"><span>Travel or disrupted schedule</span><input id="p-conf-travel" type="checkbox"/></label>
+<div class="input-group" style="padding:14px 0; border-bottom:1px solid #333;">
+<label>High stress (0–3)</label>
+<input id="p-conf-stress" max="3" min="0" placeholder="0 to 3" type="number"/>
+</div>
+<label class="checkbox-row"><span>Infection symptoms</span><input id="p-conf-infection" type="checkbox"/></label>
+<label class="checkbox-row"><span>GI upset or dehydration risk</span><input id="p-conf-gi" type="checkbox"/></label>
+<label class="checkbox-row"><span>Night pain likely electrolyte-related</span><input id="p-conf-elec" type="checkbox"/></label>
+<div class="two-col" style="margin-top:8px;margin-bottom:6px">
+<div>
+<div class="label" style="margin:0 0 4px 0">Quick pick (optional)</div>
+<select class="select" id="p-conf-elec-type">
+<option value="">Select</option>
+<option value="na">Sodium</option>
+<option value="k">Potassium</option>
+<option value="mg">Magnesium</option>
+<option value="unsure">Not sure</option>
+</select>
+</div>
+<div>
+<div class="label" style="margin:0 0 4px 0">Helped within (optional)</div>
+<select class="select" id="p-conf-elec-window">
+<option value="">Select</option>
+<option value="15">15 min</option>
+<option value="30">30 min</option>
+<option value="60">60 min</option>
+<option value="120">2+ hours</option>
+</select>
+</div>
+</div>
+<label class="checkbox-row"><span>Nothing unusual</span><input id="p-conf-none" type="checkbox"/></label>
+</div>
+
+<div class="card">
+<h3>Symptom Shift (0-10)</h3>
+<div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Rate relative to your usual baseline. 0 = much worse, 5 = baseline, 10 = much better.</div>
+<div class="slider-header"><label>Brain Fog (10 = Worst)</label><span class="slider-val">5</span></div>
+<input id="p-fog" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
+<div class="slider-header"><label>Step-by-step gait effort (10 = Hardest)</label><span class="slider-val">5</span></div>
+<input id="p-gait" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
+<div class="slider-header"><label>Gait initiation effort (10 = Hardest)</label><span class="slider-val">5</span></div>
+<input id="p-gait-init" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
+<div class="slider-header"><label>Sustained walking effort (10 = Hardest)</label><span class="slider-val">5</span></div>
+<input id="p-gait-sustain" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
+<div class="slider-header"><label>Neurologic fatigue (10 = Wiped out)</label><span class="slider-val">5</span></div>
+<input id="p-fatigue" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
+<div class="slider-header"><label>Sleep Quality (10 = Best)</label><span class="slider-val">5</span></div>
+<input id="p-sleep" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
+<div class="slider-header"><label>Leg Stiffness (10 = Rigid)</label><span class="slider-val">5</span></div>
+<input id="p-stiff" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
+<div class="slider-header"><label>Post-rest stiffness (10 = Severe)</label><span class="slider-val">5</span></div>
+<input id="p-postrest" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
+<div class="slider-header"><label>Symptom volatility (10 = Very up and down)</label><span class="slider-val">5</span></div>
+<input id="p-volatility" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
+</div>
+
+<div class="card">
+<h3>External Variables</h3>
+<p style="margin-top:8px; color:#D7D7D7; font-size:0.9rem; line-height:1.5;">Logged as an external confounder, not a core protocol component.</p>
+<div class="input-group" style="margin-top:12px;">
+<label>Neuromuscular Training (external)</label>
+<div class="pill-row" style="margin-top:8px;">
+<div class="pill-btn active" id="p-nmt-btn-0" onclick="window.setNeuromuscularTraining(0, 'none')">None</div>
+<div class="pill-btn" id="p-nmt-btn-1" onclick="window.setNeuromuscularTraining(1, 'light')">Light</div>
+<div class="pill-btn" id="p-nmt-btn-2" onclick="window.setNeuromuscularTraining(2, 'full')">Full</div>
+</div>
+<input id="p-nmt-level" type="hidden" value="0"/>
+<input id="p-nmt-label" type="hidden" value="none"/>
+</div>
+</div>
+
+<details class="lab-folder" style="margin-bottom: 20px; margin-top: 0;">
+<summary><div class="summary-text" style="color:#BF5AF2;">Periodic Lab Results<br/>(VLCFA &amp; Liver)</div></summary>
+<div class="folder-content">
+<div class="input-group" style="margin-bottom:15px;">
+<label>Date of Test</label>
+<input id="lab-date" type="date"/>
+</div>
+<div class="input-row">
+<div class="input-group"><label>VLCFA (C26:0)</label><input id="lab-vlcfa" placeholder="e.g. 1.25" type="text"/></div>
+<div class="input-group"><label>Liver (ALT/AST)</label><input id="lab-liver" placeholder="e.g. 25 / 30" type="text"/></div>
+</div>
+<div class="input-group" style="margin-top:15px;">
+<label>Notes</label>
+<textarea id="lab-notes" placeholder="Specific details..." rows="2"></textarea>
+</div>
+<div class="history-list" id="lab-history-list"></div>
+</div>
+</details>
+
+<details style="margin-bottom: 20px; margin-top: 0;">
+<summary><div class="summary-text">Functional Tests<br/>(Weekly or Monthly Anchors)</div></summary>
+<div class="folder-content">
+<p style="color:#9a9a9f; font-size:0.85rem; line-height:1.45; margin: 0 0 14px 0;">Optional objective anchors. Use the same setup each time for comparability.</p>
+<div class="input-group" style="margin-top:15px;">
+<label>Test Date</label>
+<input id="ft-date" type="date"/>
+</div>
+<div class="card" style="margin-top: 15px;">
+<h3>6-Minute Walk Test</h3>
+<div class="input-row">
+<div class="input-group"><label>Distance (meters)</label><input id="ft-6m-distance" placeholder="e.g. 220" type="number"/></div>
+<div class="input-group"><label>Rest breaks (count)</label><input id="ft-6m-restbreaks" placeholder="e.g. 1" type="number"/></div>
+</div>
+<div class="input-row" style="margin-top:12px;">
+<div class="input-group">
+<label>Assistive device</label>
+<select id="ft-6m-device">
+<option value="">Select</option>
+<option value="none">None</option>
+<option value="cane">Cane</option>
+<option value="walker">Walker</option>
+<option value="crutches">Crutches</option>
+<option value="other">Other</option>
+</select>
+</div>
+<div class="input-group"><label>Course length (meters)</label><input id="ft-6m-course" placeholder="e.g. 20" type="number"/></div>
+</div>
+<div class="input-group" style="margin-top:12px;">
+<label>Perceived exertion (0-10)</label>
+<input id="ft-6m-rpe" max="10" min="0" placeholder="0 to 10" type="number"/>
+</div>
+</div>
+<div class="card">
+<h3>5x Sit-to-Stand</h3>
+<div class="input-row">
+<div class="input-group"><label>Time (seconds)</label><input id="ft-5x-time" placeholder="e.g. 18.4" step="0.1" type="number"/></div>
+<div class="input-group">
+<label>Used arms?</label>
+<select id="ft-5x-arms">
+<option value="">Select</option>
+<option value="no">No</option>
+<option value="yes">Yes</option>
+</select>
+</div>
+</div>
+<div class="input-group" style="margin-top:12px;">
+<label>Chair height (cm, optional)</label>
+<input id="ft-5x-chair" placeholder="e.g. 45" type="number"/>
+</div>
+</div>
+<div class="input-group" style="margin-top:12px;">
+<label>Notes</label>
+<textarea id="ft-notes" placeholder="Anything notable about setup, pain, fatigue, or conditions" rows="2"></textarea>
+</div>
+<div class="history-list" id="ft-history-list"></div>
+</div>
+</details>
+
+<div class="card"><h3>Food (optional)</h3><textarea class="notes" id="p-food-notes" placeholder="Brief notes..."></textarea></div>
+<div class="card"><h3>General notes</h3><div class="input-group" style="margin-top:14px;"><label>Notes (optional)</label><textarea id="p-notes" placeholder="General notes..." rows="3"></textarea></div></div>
+
+<div class="card">
+<h3>Adverse events</h3>
+<div class="event-list" id="p-adverse-events"></div>
+<button class="mini-btn" id="p-add-adverse-event" onclick="window.addAdverseEvent()" type="button">+ Add adverse event</button>
+</div>
+
+<div class="card">
+<h3>Wins (optional)</h3>
+<p style="color:var(--text-secondary); margin-top:8px; font-size:0.9rem; line-height:1.5;">Use this if something clearly improved during a specific window.</p>
+<div class="event-list" id="p-positive-events"></div>
+<button class="mini-btn" id="p-add-positive-event" onclick="window.addPositiveEvent()" type="button">+ Add win</button>
+</div>
+
+<div class="card">
+<h3>Subjective daily summary</h3>
+<textarea id="p-daily-summary" placeholder="Example: Energy steadier overall. Walking felt smoother overall. Less volatile symptoms." rows="3"></textarea>
+</div>
+
+<button class="mini-btn" onclick="window.openTrends()" style="margin-bottom:20px;" type="button">VIEW TRENDS &amp; EXPORT PDF</button>
+<button class="back-btn" onclick="window.resetPilotForm()" style="width:100%; text-align:center; margin: 0 0 14px 0;" type="button">Reset today's form</button>
+<button class="save-btn" id="p-save-log" onclick="window.handlePilotSave()" type="button">SAVE DAILY LOG</button>
+</form>
+</section>
+
+<section class="view hidden" id="trends-view">
+<header>
+<button class="back-btn" onclick="window.goBack()">← Back</button>
+<img alt="Pioneer Icon" class="header-icon" src="icon.png"/>
+<h2>Trends</h2>
+</header>
+<div class="card">
+<h3>Trends Mode</h3>
+<div class="pill-row">
+<div class="pill-btn active" id="tab-summary" onclick="window.showTrendsTab('summary')">Summary</div>
+<div class="pill-btn" id="tab-charts" onclick="window.showTrendsTab('charts')">Charts</div>
+<div class="pill-btn" id="tab-details" onclick="window.showTrendsTab('details')">Details</div>
+</div>
+</div>
+<div id="trends-summary-pane">
+<div class="card">
+<h3>Change Detection Summary</h3>
+<button class="lab-save-btn" id="clinician-export-btn" onclick="window.openExportModal({patientId:'patrick', label:'Pilot'})" style="margin-top:12px;" type="button">DOWNLOAD PILOT HISTORY (PDF)</button>
+<div id="change-summary" style="margin-top:12px; font-size:0.9rem; line-height:1.7; color:#E0E0E0;"></div>
+</div>
+</div>
+<div id="trends-charts-pane" style="display:none;">
+<div class="card"><h3>Global Baseline Rating</h3><canvas height="180" id="chart-global"></canvas></div>
+<div class="card"><h3>Energy / Capacity (0–10)</h3><canvas height="180" id="chart-energy"></canvas></div>
+<div class="card"><h3>Pain Impact (0–10)</h3><canvas height="180" id="chart-pain"></canvas></div>
+<div class="card"><h3>Sleep Quality (0–10)</h3><canvas height="180" id="chart-sleep"></canvas></div>
+<div class="card"><h3>Gait Effort (0–10)</h3><canvas height="180" id="chart-gait-effort"></canvas></div>
+<div class="card"><h3>Leg Stiffness (0–10)</h3><canvas height="180" id="chart-leg-stiffness"></canvas></div>
+<div class="card"><h3>Brain Fog (0–10)</h3><canvas height="180" id="chart-brain-fog"></canvas></div>
+<div class="card"><h3>Neurologic Fatigue (0–10)</h3><canvas height="180" id="chart-neuro-fatigue"></canvas></div>
+</div>
+<div id="trends-details-pane" style="display:none;">
+<div class="card">
+<div class="h2">Tracked Metrics (Details)</div>
+<div class="muted" style="margin-top:8px;">N = number of days with a recorded value.</div>
+<div id="trends-details-content" style="margin-top:12px;"></div>
+</div>
+</div>
+</section>
+
+<section class="view hidden" id="nieve-view">
+<header>
+<button class="back-btn" onclick="window.goBack()">← Back</button>
+<img alt="Pioneer Icon" class="header-icon" src="icon.png"/>
+<h2>The Passenger</h2>
+<div class="streak-badge"><span id="streak-count">0</span> Day Streak</div>
+</header>
+<form id="nieve-form">
+<div class="card">
+<h3>Daily Protocol</h3>
+<label class="checkbox-row"><span>Nervonic Acid (500mg)</span><input id="n-nervonic" type="checkbox"/></label>
+<label class="checkbox-row"><span>NAC (600mg)</span><input id="n-nac" type="checkbox"/></label>
+<label class="checkbox-row"><span>ALA (200mg)</span><input id="n-ala" type="checkbox"/></label>
+<label class="checkbox-row"><span>Vit E (200IU)</span><input id="n-vite" type="checkbox"/></label>
+</div>
+<div class="card">
+<h3>Safety Check</h3>
+<div class="toggle-row" style="display:flex; justify-content:space-between; align-items:center; padding:12px 0;">
+<span>Do you feel different today?</span>
+<label class="switch">
+<input id="n-safety" onchange="window.toggleSafetyBox()" type="checkbox"/>
+<span class="slider round"></span>
+</label>
+</div>
+<div class="hidden-box" id="n-safety-box">
+<div class="input-group">
+<label style="color:var(--danger-red);">Describe Symptoms</label>
+<textarea id="n-safety-notes" placeholder="What feels different?" rows="3"></textarea>
+</div>
+</div>
+</div>
+<div class="card"><h3>Notes (optional)</h3><textarea class="notes" id="n-notes" placeholder="Optional notes..."></textarea></div>
+<button class="mini-btn" id="passenger-export-btn" onclick="window.openExportModal({patientId:'nieve', label:'Passenger'})" style="margin-bottom:20px;" type="button">DOWNLOAD HISTORY (PDF)</button>
+<button class="save-btn" id="n-save-log" onclick="window.handlePassengerSave()" type="button">SAVE DAILY LOG</button>
+</form>
+</section>
+</div>
+
+<script>
+    window.__AUTH_MODULE_LOADED__ = false;
+
+    window.__enterDemoMode = function __enterDemoMode() {
+      try {
+        window.__DEMO_MODE__ = true;
+        const overlay = document.getElementById('auth-overlay');
+        if (overlay) overlay.style.display = 'none';
+        const disableIds = ['p-save-log','n-save-log','clinician-export-btn'];
+        disableIds.forEach((id) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.disabled = true; el.style.opacity = '0.5'; el.style.cursor = 'not-allowed';
+          el.title = 'Demo mode: cloud sync disabled';
+        });
+        let b = document.getElementById('demo-banner');
+        if (!b) {
+          b = document.createElement('div'); b.id = 'demo-banner';
+          b.style.cssText = 'position:fixed;left:16px;right:16px;bottom:16px;z-index:9999;padding:10px 12px;border-radius:12px;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#fff;font-size:13px;line-height:1.25;pointer-events:none;';
+          b.innerHTML = 'Viewing in demo mode (read-only)';
+          document.body.appendChild(b);
+        }
+      } catch (e) { console.warn('Demo mode failed to start', e); }
+    };
+
+    function setAuthError(msg) {
+      const el = document.getElementById('auth-error');
+      if (!el) return;
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    function hideAuthModal() {
+      const overlay = document.getElementById('auth-overlay');
+      if (overlay) overlay.setAttribute('hidden','hidden');
+    }
+
+    window.enterDemoMode = function () {
+      try { localStorage.setItem('amn_demo_mode', '1'); } catch (_) {}
+      hideAuthModal();
+      if (typeof window.__enterDemoMode === 'function') window.__enterDemoMode();
+    };
+
+    if (location.protocol === 'file:') {
+      setAuthError('You opened this page as a local file (file://). Cloud login will not work. Use the Netlify URL or run a local server. You can still use "View demo (read-only)".');
+    }
+
+    // --- FIREBASE INITIALIZATION ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyDrklblxcbR3TxTOMgsEB4ZgKNE2F1Au98",
+      authDomain: "pioneer-program.firebaseapp.com",
+      projectId: "pioneer-program",
+      storageBucket: "pioneer-program.firebasestorage.app",
+      messagingSenderId: "773361494367",
+      appId: "1:773361494367:web:15aee1471b181413d1eeea"
+    };
+
+    let auth = null;
+    let db = null;
+    try {
+      if (window.firebase && typeof firebase.initializeApp === 'function') {
+        if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+        db = firebase.firestore();
+        auth = firebase.auth();
+        window.__AUTH_MODULE_LOADED__ = true;
+        window.__authApi = {
+          signIn: (email, pass) => auth.signInWithEmailAndPassword(email, pass),
+          signUp: (email, pass) => auth.createUserWithEmailAndPassword(email, pass),
+          signOut: () => auth.signOut()
+        };
+      }
+    } catch (e) {
+      console.error('Firebase bootstrap failed:', e);
+      window.__AUTH_MODULE_LOADED__ = false;
+      setAuthError('Cloud login failed to initialize. Try disabling content blockers and reloading. You can still use "View demo (read-only)".');
+    }
+
+    if (!window.__AUTH_MODULE_LOADED__ || !auth || !db) {
+      const demoBtn = document.getElementById('auth-demo');
+      const inBtn = document.getElementById('auth-signin');
+      const upBtn = document.getElementById('auth-signup');
+      if (demoBtn) demoBtn.addEventListener('click', () => window.enterDemoMode());
+      const explain = () => setAuthError('Cloud login did not initialize. Try reloading and disabling content blockers. You can still use "View demo (read-only)".');
+      if (inBtn) inBtn.addEventListener('click', explain);
+      if (upBtn) upBtn.addEventListener('click', explain);
+    } else {
+      auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
+        console.warn("Auth persistence not set:", (err && err.code) ? err.code : err);
+      });
+
+      var CURRENT_UID = null;
+      window.CURRENT_UID = null;
+
+      // FIX #4: Auth in-progress guard prevents iOS autofill re-submit loop
+      var _authInProgress = false;
+
+      function ensureAuthUI() {
+        if (window.__authUIReady) return;
+        const overlay = document.getElementById("auth-overlay");
+        const emailEl = document.getElementById("auth-email");
+        const passEl = document.getElementById("auth-pass");
+        const btnIn  = document.getElementById("auth-signin");
+        const btnUp  = document.getElementById("auth-signup");
+        const btnDemo = document.getElementById("auth-demo");
+        const errEl  = document.getElementById("auth-error");
+        const authForm = document.getElementById("auth-form");
+
+        if (!overlay || !emailEl || !passEl || !btnIn || !btnUp || !btnDemo || !errEl) {
+          setTimeout(ensureAuthUI, 50);
+          return;
+        }
+
+        const showErr = (msg) => {
+          errEl.textContent = msg || "";
+          errEl.style.display = msg ? "block" : "none";
+        };
+
+        // FIX #4: Prevent form default submit and route through single handler
+        if (authForm) {
+          authForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            if (_authInProgress) return;
+            _authInProgress = true;
+            showErr("");
+            const email = (emailEl.value || "").trim();
+            const pass  = (passEl.value || "").trim();
+            if (!email || !pass) { showErr("Enter email and password."); _authInProgress = false; return; }
+            try {
+              await window.__authApi.signIn(email, pass);
+              showAuthOverlay(false);
+              onAuthReady();
+            } catch (e) {
+              showErr(e?.message || String(e));
+            } finally {
+              _authInProgress = false;
+            }
+          });
+        }
+
+        btnUp.addEventListener("click", async () => {
+          if (_authInProgress) return;
+          _authInProgress = true;
+          showErr("");
+          const email = (emailEl.value || "").trim();
+          const pass  = (passEl.value || "").trim();
+          if (!email || !pass) { showErr("Enter email and password."); _authInProgress = false; return; }
+          try {
+            await window.__authApi.signUp(email, pass);
+            showAuthOverlay(false);
+            onAuthReady();
+          } catch (e) {
+            showErr(e?.message || String(e));
+          } finally {
+            _authInProgress = false;
+          }
+        });
+
+        btnDemo.addEventListener("click", () => {
+          showErr("");
+          enterDemoMode();
+        });
+
+        window.__authUIReady = true;
+      }
+
+      function showAuthOverlay(show) {
+        ensureAuthUI();
+        const o = document.getElementById("auth-overlay");
+        if (!o) return;
+        if (show) o.removeAttribute("hidden");
+        else o.setAttribute("hidden", "hidden");
+      }
+
+      function enterDemoMode() {
+        window.__DEMO_MODE__ = true;
+        showAuthOverlay(false);
+        const disableIds = ["p-save-log","n-save-log","clinician-export-btn"];
+        disableIds.forEach((id) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.disabled = true; el.style.opacity = "0.5"; el.style.cursor = "not-allowed";
+          el.title = "Demo mode: cloud sync disabled";
+        });
+        let b = document.getElementById("demo-banner");
+        if (!b) {
+          b = document.createElement("div"); b.id = "demo-banner";
+          b.style.cssText = "position:fixed;left:16px;right:16px;bottom:16px;z-index:9999;padding:10px 12px;border-radius:12px;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#fff;font-size:13px;line-height:1.25;";
+          b.innerHTML = "Viewing in demo mode (read-only). Cloud sync and exports are disabled.";
+          document.body.appendChild(b);
+        }
+      }
+
+      function onAuthReady() { /* placeholder for post-auth init */ }
+
+      window.signOutProtocol = async function() {
+        try { await auth.signOut(); } catch(e) { console.error(e); }
+      };
+
+      function requireUid() {
+        if (window.__DEMO_MODE__) throw new Error("Demo mode: not signed in");
+        if (!window.CURRENT_UID) throw new Error("Not signed in. Please sign in again.");
+        return window.CURRENT_UID;
+      }
+
+      db.enablePersistence({ synchronizeTabs: true }).catch((err) => {
+        if (err && err.code === 'failed-precondition') {
+          console.warn("Firestore persistence unavailable (multiple tabs open).");
+        } else if (err && err.code === 'unimplemented') {
+          console.warn("Firestore persistence not supported in this browser.");
+        } else {
+          console.warn("Firestore persistence not enabled:", (err && err.code) ? err.code : err);
+        }
+      });
+
+      auth.onAuthStateChanged((user) => {
+        window.CURRENT_UID = user?.uid || null;
+        showAuthOverlay(!window.CURRENT_UID);
+        // Sync phase tracker start date from Firestore on login
+        if (user && typeof window.__phaseTrackerSyncFromFirestore === 'function') {
+          window.__phaseTrackerSyncFromFirestore();
+        }
+      });
+
+      function userProfilePath(profile, ...rest) {
+        const uid = requireUid();
+        const tail = rest.length ? "/" + rest.map(encodeURIComponent).join("/") : "";
+        return `users/${uid}/profiles/${encodeURIComponent(profile)}${tail}`;
+      }
+
+      // ---------------------------
+      // Helpers
+      // ---------------------------
+      function localDateStr(d = new Date()) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      }
+      function el(id) { return document.getElementById(id); }
+      function val(id) { return el(id)?.value ?? ""; }
+      function checked(id) { return !!el(id)?.checked; }
+      function asNumber(v) { const s = String(v ?? "").trim(); if (s === "") return null; const n = Number(s); return Number.isFinite(n) ? n : null; }
+      function trimText(s) { return String(s ?? "").replace(/\s+/g, " ").trim(); }
+      function mustEnum(value, allowed, fallback = null) { return allowed.includes(value) ? value : fallback; }
+      function parseBP(bpText) {
+        const t = trimText(bpText);
+        const m = t.match(/(\d{2,3})\s*\/\s*(\d{2,3})/);
+        if (!m) return { bp_sys: null, bp_dia: null };
+        return { bp_sys: asNumber(m[1]), bp_dia: asNumber(m[2]) };
+      }
+
+      // FIX #3: displayValue helper — always returns 'N/A' for null/undefined/empty
+      function displayValue(v, suffix) {
+        if (v === null || v === undefined || v === '') return 'N/A';
+        return String(v) + (suffix || '');
+      }
+
+      // ---------------------------
+      // Event list UI (Pilot)
+      // ---------------------------
+      window.POSITIVE_TRIGGERS = [
+        "Sleep improvement","Rest / pacing","Mindfulness practice","Light movement / mobility",
+        "Food / hydration","Medication / supplement adjustment (non-core)","Other","Unknown"
+      ];
+      window.ADVERSE_TRIGGERS = [
+        "Poor sleep","Overexertion","Stress","Illness / infection","Travel / disrupted schedule",
+        "Medication / supplement adjustment (non-core)","Electrolyte shift (suspected)","Other","Unknown"
+      ];
+      const POSITIVE_TRIGGERS = window.POSITIVE_TRIGGERS;
+      const ADVERSE_TRIGGERS = window.ADVERSE_TRIGGERS;
+
+      function escapeHTML(input) {
+        return String(input ?? "")
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;").replace(/'/g, "&#39;");
+      }
+      function optionList(options) {
+        return options.map(o => `<option value="${escapeHTML(o)}">${escapeHTML(o)}</option>`).join("");
+      }
+
+      function newEpisodeItem(kind) {
+        const wrap = document.createElement("div");
+        wrap.className = "event-item";
+        const title = (kind === "positive") ? "What improved" : "What happened";
+        const triggerLabel = (kind === "positive") ? "What helped (optional)" : "What drove it (optional)";
+        const triggers = (kind === "positive") ? POSITIVE_TRIGGERS : ADVERSE_TRIGGERS;
+        wrap.innerHTML = `
+          <div class="input-group"><label>${title}</label><textarea class="input" rows="2" placeholder="Short description..."></textarea></div>
+          <div class="row">
+            <div class="input-group"><label>Duration (min)</label><input class="input duration" type="number" min="0" step="1" placeholder="e.g. 30" /></div>
+            <div class="input-group"><label>${triggerLabel}</label><select class="input trigger"><option value="">Select</option>${optionList(triggers)}</select></div>
+          </div>
+          <div class="input-group"><label>Trigger detail (optional)</label><input class="input detail" type="text" placeholder="e.g., potassium helped, intense PT session" /></div>
+          <button class="remove-btn" type="button">Remove</button>`;
+        wrap.querySelector(".remove-btn").addEventListener("click", () => wrap.remove());
+        return wrap;
+      }
+
+      function initEvents() {
+        const posWrap = document.getElementById("p-positive-events");
+        const advWrap = document.getElementById("p-adverse-events");
+        const addPos = document.getElementById("p-add-positive-event");
+        const addAdv = document.getElementById("p-add-adverse-event");
+        if (addPos && posWrap && !addPos.getAttribute("onclick")) {
+          addPos.addEventListener("click", () => posWrap.appendChild(newEpisodeItem("positive")));
+        }
+        if (addAdv && advWrap && !addAdv.getAttribute("onclick")) {
+          addAdv.addEventListener("click", () => advWrap.appendChild(newEpisodeItem("adverse")));
+        }
+      }
+
+      window.addPositiveEvent = function(){
+        const posWrap = document.getElementById("p-positive-events");
+        if (posWrap) posWrap.appendChild(newEpisodeItem("positive"));
+      };
+      window.addAdverseEvent = function(){
+        const advWrap = document.getElementById("p-adverse-events");
+        if (advWrap) advWrap.appendChild(newEpisodeItem("adverse"));
+      };
+
+      function readEpisodeItems(containerId, fallbackId) {
+        const wrap = document.getElementById(containerId) || (fallbackId ? document.getElementById(fallbackId) : null);
+        if (!wrap) return [];
+        return [...wrap.querySelectorAll(".event-item")].map(el => {
+          const desc = (el.querySelector("textarea")?.value || "").trim();
+          const durationRaw = (el.querySelector("input.duration")?.value || "").trim();
+          const durationMin = durationRaw === "" ? null : Number(durationRaw);
+          const trigger = (el.querySelector("select.trigger")?.value || "").trim();
+          const detail = (el.querySelector("input.detail")?.value || "").trim();
+          return { desc, durationMin: Number.isFinite(durationMin) ? durationMin : null, trigger: trigger || null, detail: detail || null };
+        }).filter(x => x.desc || x.trigger || x.detail || (x.durationMin !== null));
+      }
+      function readPositiveEvents() { return readEpisodeItems("p-positive-events", "positive-events"); }
+      function readAdverseEvents() { return readEpisodeItems("p-adverse-events", "adverse-events"); }
+
+      function collectPilotPayload() {
+        const date = localDateStr();
+        const morningBP = parseBP(val("p-morning-bp"));
+        const eveningBP = parseBP(val("p-evening-bp"));
+        return {
+          date,
+          baseline_rating: mustEnum(val("p-global-rating"), ["much_worse","worse","slightly_worse","baseline","slightly_better","better","much_better"], null),
+          baseline_confidence: mustEnum(val("p-global-confidence"), ["low","medium","high"], null),
+          energy_capacity: asNumber(val("p-energy-capacity")),
+          energy_confidence: mustEnum(val("p-energy-confidence"), ["low","medium","high"], null),
+          symptom_drift: {
+            brain_fog: asNumber(val("p-fog")),
+            step_gait_effort: asNumber(val("p-gait")),
+            gait_initiation_effort: asNumber(val("p-gait-init")),
+            sustained_walking_effort: asNumber(val("p-gait-sustain")),
+            neurologic_fatigue: asNumber(val("p-fatigue")),
+            sleep_quality: asNumber(val("p-sleep")),
+            leg_stiffness: asNumber(val("p-stiff")),
+            post_rest_stiffness: asNumber(val("p-postrest")),
+            symptom_volatility: asNumber(val("p-volatility"))
+          },
+          pain_impact: {
+            severity: asNumber(val("p-painimpact")),
+            interfered_with_sleep: checked("p-pain-sleep"),
+            limited_walking: checked("p-pain-walk"),
+            forced_extra_rest: checked("p-pain-rest"),
+            required_rescue_meds: checked("p-pain-meds"),
+            changed_gait_mechanics: checked("p-pain-gait"),
+            primary_driver: mustEnum(val("p-pain-location"), ["piriformis_glute","low_back","hip","thigh","calf","foot","other"], null)
+          },
+          context_changes: {
+            poor_sleep_last_night: checked("p-conf-sleep"),
+            unusual_physical_exertion: checked("p-conf-exertion"),
+            medication_timing_change: checked("p-conf-medtiming"),
+            dose_change: checked("p-conf-dosechange"),
+            missed_dose: checked("p-conf-misseddose"),
+            new_supplement_added: checked("p-conf-newsupp"),
+            new_medication_added: checked("p-conf-newmed"),
+            travel_or_disrupted_schedule: checked("p-conf-travel"),
+            high_stress: (asNumber(val("p-conf-stress")) ?? 0),
+            infection_symptoms: checked("p-conf-infection"),
+            gi_upset_or_dehydration_risk: checked("p-conf-gi"),
+            night_pain_likely_electrolyte_related: checked("p-conf-elec"),
+            electrolyte_rescue_window: val("p-conf-elec-window") || "",
+            electrolyte_rescue_type: val("p-conf-elec-type") || "",
+            nothing_unusual: checked("p-conf-none")
+          },
+          vitals: {
+            morning: { ...morningBP, hr: asNumber(val("p-morning-hr")) },
+            evening: { ...eveningBP, hr: asNumber(val("p-evening-hr")) }
+          },
+          protocol_adherence: {
+            nervonic_acid_taken: checked("p-nervonic"),
+            nervonic_acid_missed: checked("p-na-missed"),
+            nac_taken: checked("p-nac"),
+            r_ala_taken: checked("p-ala"),
+            vitamin_e_taken: checked("p-vite")
+          },
+          external_neuromuscular_training: {
+            level: (asNumber(val("p-nmt-level")) ?? 0),
+            label: mustEnum(val("p-nmt-label"), ["none","light","full"], "none")
+          },
+          fast_markers: {
+            near_fall_or_balance_scare: checked("p-fast-nearfall"),
+            electrolyte_rescue_required: checked("p-fast-electrolyte"),
+            spasm_or_clonus_episode: checked("p-fast-spasm"),
+            night_pain_woke_me: checked("p-fast-nightpain"),
+            restless_legs_at_night: checked("p-fast-restless")
+          },
+          positive_events: readPositiveEvents(),
+          daily_summary: trimText(val("p-daily-summary")) || null,
+          adverse_events: readAdverseEvents(),
+          notes: trimText(val("p-notes")) || null,
+          food_notes: trimText(val("p-food-notes")) || null
+        };
+      }
+
+      function collectPassengerPayload() {
+        return {
+          date: localDateStr(),
+          notes: trimText(val("n-notes")) || null,
+          safety: { feels_different: checked("n-safety"), details: trimText(val("n-safety-notes")) || null },
+          protocol_adherence: {
+            nervonic_acid_taken: checked("n-nervonic"),
+            nac_taken: checked("n-nac"),
+            r_ala_taken: checked("n-ala"),
+            vitamin_e_taken: checked("n-vite")
+          }
+        };
+      }
+
+      function collectLabPayload() {
+        const date = trimText(val("lab-date"));
+        return {
+          date: date || localDateStr(),
+          lab: {
+            test_date: date || null,
+            vlcfa_c26: trimText(val("lab-vlcfa")) || null,
+            liver_alt_ast: trimText(val("lab-liver")) || null,
+            notes: trimText(val("lab-notes")) || null
+          }
+        };
+      }
+
+      async function saveUserLog(profileId, payload) {
+        try {
+          const uid = window.CURRENT_UID;
+          if (!uid) throw new Error("Not authenticated");
+          const dateStr = payload.date || localDateStr();
+          const docRef = db.doc(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs/${encodeURIComponent(dateStr)}`);
+          const finalPayload = { ...payload, date: dateStr, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), clientUpdatedAt: new Date().toISOString() };
+          await docRef.set(finalPayload, { merge: true });
+        } catch (err) {
+          if (err?.message && String(err.message).toLowerCase().includes('terminated')) {
+            alert("Database connection interrupted. The page will now refresh to restore connection.");
+            window.location.reload();
+            return;
+          }
+          console.error("Save error:", err);
+          alert("Failed to save: " + (err?.message || err));
+          throw err;
+        }
+      }
+      window.saveUserLog = saveUserLog;
+
+      async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
+        const q = db.collection(userProfilePath(patientId, "logs"))
+          .where("date", ">=", startDate).where("date", "<=", endDate).orderBy("date", dir);
+        const snapshot = await q.get();
+        return snapshot.docs.map((d) => d.data());
+      }
+
+      async function fetchPatientLogs(patientId, days = 30) {
+        const q = db.collection(userProfilePath(patientId, "logs")).orderBy("date", "desc").limit(days);
+        const snapshot = await q.get();
+        return snapshot.docs.map((d) => d.data());
+      }
+
+      function _safeTxt(v) { return String(v ?? "").replace(/\s+/g, " ").trim(); }
+      function _yesNo(v) { return v ? "Yes" : "No"; }
+
+      // FIX #1: Removed stray closing brace that caused SyntaxError
+      function _fmtSymptomShift(sd) {
+        if (!sd || typeof sd !== "object") return [];
+        const order = [
+          ["brain_fog","Brain fog"],["step_gait_effort","Step-by-step gait effort"],
+          ["gait_initiation_effort","Gait initiation effort"],["sustained_walking_effort","Sustained walking effort"],
+          ["neurologic_fatigue","Neurologic fatigue"],["sleep_quality","Sleep quality"],
+          ["leg_stiffness","Leg stiffness"],["post_rest_stiffness","Post-rest stiffness"],
+          ["symptom_volatility","Symptom volatility"]
+        ];
+        const out = [];
+        order.forEach(([k,label]) => {
+          const v = sd[k];
+          if (v !== null && v !== undefined && v !== "" && !Number.isNaN(Number(v))) {
+            out.push(`${label}: ${v}`);
+          }
+        });
+        return out;
+      }
+
+      function _fmtPainImpact(pi) {
+        if (!pi || typeof pi !== "object") return [];
+        const out = [];
+        if (pi.severity !== undefined && pi.severity !== null && pi.severity !== "") {
+          out.push(`Pain impact (0–10): ${pi.severity}`);
+        }
+        const bools = [
+          ["interfered_with_sleep","Interfered with sleep"],["limited_walking","Limited walking"],
+          ["forced_extra_rest","Forced extra rest"],["required_rescue_meds","Required rescue meds"],
+          ["changed_gait_mechanics","Changed gait mechanics"],
+        ];
+        for (const [k,label] of bools) {
+          if (pi[k] === undefined) continue;
+          out.push(`  ${label}: ${_yesNo(!!pi[k])}`);
+        }
+        if (pi.primary_driver) out.push(`  Primary driver: ${_safeTxt(pi.primary_driver)}`);
+        return out;
+      }
+
+      function _fmtConfounders(cc) {
+        if (!cc || typeof cc !== "object") return [];
+        const out = [];
+        const pickCC = (...keys) => { for (const k of keys) { if (cc[k] !== undefined && cc[k] !== null) return cc[k]; } return undefined; };
+        const checks = [
+          ["poor_sleep_last_night","Poor sleep last night",["poor_sleep_last_night","poor_sleep"]],
+          ["unusual_physical_exertion","Unusual exertion",["unusual_physical_exertion"]],
+          ["medication_timing_change","Medication timing change",["medication_timing_change"]],
+          ["dose_change","Dose change",["dose_change"]],
+          ["missed_dose","Missed dose",["missed_dose"]],
+          ["new_supplement_added","New supplement",["new_supplement_added"]],
+          ["new_medication_added","New medication",["new_medication_added"]],
+          ["travel_or_disrupted_schedule","Travel or schedule change",["travel_or_disrupted_schedule"]],
+          ["infection_symptoms","Infection symptoms",["infection_symptoms"]],
+          ["gi_upset_or_dehydration_risk","GI upset or dehydration risk",["gi_upset_or_dehydration_risk"]]
+        ];
+        checks.forEach(([,label,keys]) => { if (pickCC(...keys) === true) out.push(label); });
+        const stress = pickCC("high_stress");
+        if (stress !== undefined && stress !== null && stress !== "" && stress !== 0) out.push(`High stress: ${stress}`);
+        if (pickCC("night_pain_likely_electrolyte_related") === true) {
+          const win = pickCC("electrolyte_rescue_window");
+          const typ = pickCC("electrolyte_rescue_type");
+          const detail = [win && `window: ${win}`, typ && `type: ${typ}`].filter(Boolean);
+          out.push(detail.length ? `Electrolyte rescue likely (${detail.join(", ")})` : "Electrolyte rescue likely");
+        }
+        if (pickCC("nothing_unusual") === true) out.push("Nothing unusual");
+        return out;
+      }
+
+      function _abbrBaseline(v) {
+        switch (v) {
+          case "much_worse": return "MW"; case "worse": return "W"; case "slightly_worse": return "SW";
+          case "baseline": return "BL"; case "same": return "S"; case "slightly_better": return "SB";
+          case "better": return "B"; case "much_better": return "MB"; default: return "-";
+        }
+      }
+
+      function _ctxCodes(ctx) {
+        if (!ctx) return "";
+        const parts = [];
+        if (ctx.poor_sleep_last_night) parts.push("SLP");
+        if (ctx.unusual_physical_exertion) parts.push("EX");
+        if (ctx.medication_timing_change) parts.push("MEDT");
+        if (ctx.dose_change) parts.push("DOSE");
+        if (ctx.missed_dose) parts.push("MISS");
+        if (ctx.new_supplement_added) parts.push("NEW");
+        if (ctx.new_medication_added) parts.push("NEWMED");
+        if (ctx.night_pain_likely_electrolyte_related) {
+          const t = ctx.electrolyte_rescue_type ? ctx.electrolyte_rescue_type.toUpperCase() : "";
+          const w = ctx.electrolyte_rescue_window ? ctx.electrolyte_rescue_window : "";
+          parts.push(`ELEC${t}${w ? "-" + w : ""}`);
+        }
+        if (ctx.travel_or_disrupted_schedule) parts.push("TRV");
+        if ((ctx.high_stress ?? 0) > 0) parts.push(`STR${ctx.high_stress}`);
+        if (ctx.infection_symptoms) parts.push("INF");
+        if (ctx.gi_upset_or_dehydration_risk) parts.push("GI");
+        if (ctx.nothing_unusual) parts.push("NONE");
+        return parts.join(" ");
+      }
+
+      function _protoPilot(p) {
+        if (!p) return "";
+        const yn = (b) => (b ? "Y" : "N");
+        return `NA:${yn(p.nervonic_acid_taken)}${p.nervonic_acid_missed ? "(miss)" : ""}  NAC:${yn(p.nac_taken)}  ALA:${yn(p.r_ala_taken)}  E:${yn(p.vitamin_e_taken)}`;
+      }
+
+      function _protoPassenger(p) {
+        if (!p) return "";
+        const yn = (b) => (b ? "Y" : "N");
+        return `NA:${yn(p.nervonic_acid_taken)}  NAC:${yn(p.nac_taken)}  ALA:${yn(p.r_ala_taken)}  E:${yn(p.vitamin_e_taken)}`;
+      }
+
+      // FIX #3: bpRender now checks for null values to prevent "null/null" output
+      function _vitalsLine(v) {
+        const fmtBP = (o) => {
+          if (!o) return "N/A";
+          const s = o.bp_sys ?? null;
+          const d = o.bp_dia ?? null;
+          return (s !== null && d !== null) ? `${s}/${d}` : "N/A";
+        };
+        const fmtHR = (o) => {
+          if (!o) return "N/A";
+          return (o.hr !== null && o.hr !== undefined && o.hr !== 0) ? String(o.hr) : "N/A";
+        };
+        return `AM ${fmtBP(v?.morning)} HR ${fmtHR(v?.morning)}   PM ${fmtBP(v?.evening)} HR ${fmtHR(v?.evening)}`;
+      }
+
+      function _appendWrapped(pdf, text, x, y, maxWidth, lineH) {
+        const lines = pdf.splitTextToSize(text, maxWidth);
+        for (const ln of lines) { pdf.text(ln, x, y); y += lineH; }
+        return y;
+      }
+
+      // FIX #2: exportProtocolReport now fetches AND merges functional tests by date
+      async function exportProtocolReport(profileId, opts = {}) {
+        const uid = window.CURRENT_UID;
+        if (!uid) { alert("Must be logged in to export."); return; }
+
+        // FIX #3: vr helper always returns 'N/A' for missing values
+        const vr = (val, suffix = "") => {
+          if (val === null || val === undefined || val === "") return "N/A";
+          return String(val) + suffix;
+        };
+        const yn = (val) => {
+          if (val === true) return "Yes";
+          if (val === false) return "No";
+          return "N/A";
+        };
+        const pick = (obj, ...keys) => {
+          for (const k of keys) {
+            if (!obj) continue;
+            const v = obj[k];
+            if (v !== undefined && v !== null && v !== "") return v;
+          }
+          return undefined;
+        };
+        // FIX #3: bpRender returns N/A instead of "" for missing/null BP
+        const bpRender = (v) => {
+          if (!v || typeof v !== "object") return "N/A";
+          if (v.bp) return v.bp;
+          // FIX: explicitly check for null (not just undefined/empty string)
+          if (v.bp_sys !== undefined && v.bp_sys !== null &&
+              v.bp_dia !== undefined && v.bp_dia !== null &&
+              v.bp_sys !== "" && v.bp_dia !== "") return `${v.bp_sys}/${v.bp_dia}`;
+          return "N/A";
+        };
+
+        try {
+          const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
+          const snapshot = await logsRef.orderBy("date", "desc").get();
+          if (snapshot.empty) { alert("No data found to export."); return; }
+          let logs = [];
+          snapshot.forEach(doc => logs.push(doc.data()));
+
+          // FIX #2: Fetch functional tests collection and merge into logs by date
+          try {
+            const testsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/tests`);
+            const testsSnap = await testsRef.get();
+            const testsByDate = {};
+            testsSnap.forEach(doc => {
+              const t = doc.data();
+              const td = t.test_date || "";
+              if (!td) return;
+              if (!testsByDate[td]) testsByDate[td] = [];
+              testsByDate[td].push(t);
+            });
+            // Merge tests into matching log entries by date
+            logs = logs.map(log => ({
+              ...log,
+              functional_tests: testsByDate[log.date] || log.functional_tests || []
+            }));
+          } catch (testsErr) {
+            console.warn("Could not fetch functional tests (non-fatal):", testsErr);
+          }
+
+          const startDate = opts?.startDate || null;
+          const endDate = opts?.endDate || null;
+          if (startDate || endDate) {
+            logs = logs.filter(l => {
+              const d = String(l.date || "");
+              if (!d) return false;
+              if (startDate && d < startDate) return false;
+              if (endDate && d > endDate) return false;
+              return true;
+            });
+          }
+          if (!logs.length) { alert("No data found for that date range."); return; }
+
+          const pn = (document.getElementById("export-patient-name")?.value || '').trim() || 'Patrick Fuellbeck';
+          const dob = document.getElementById("export-patient-dob")?.value || "";
+
+          // ── SUMMARY COMPUTATION ──────────────────────────────────────────
+          // Sort logs chronologically for trend analysis
+          const chronoLogs = [...logs].sort((a,b) => String(a.date||"").localeCompare(String(b.date||"")));
+          const n = chronoLogs.length;
+
+          // Split into thirds for trend arrows
+          const third = Math.max(1, Math.floor(n / 3));
+          const earlyLogs = chronoLogs.slice(0, third);
+          const lateLogs  = chronoLogs.slice(n - third);
+
+          const _avg = (arr, getter) => {
+            const vals = arr.map(getter).filter(v => v !== null && v !== undefined && v !== "" && Number.isFinite(Number(v))).map(Number);
+            return vals.length ? vals.reduce((a,b) => a+b, 0) / vals.length : null;
+          };
+
+          const _trend = (earlyVal, lateVal, higherIsBetter) => {
+            if (earlyVal === null || lateVal === null) return "–";
+            const diff = lateVal - earlyVal;
+            if (Math.abs(diff) < 0.3) return "→";
+            if (higherIsBetter) return diff > 0 ? "↑" : "↓";
+            else return diff > 0 ? "↓" : "↑";  // higher is worse, so up arrow means worse
+          };
+
+          const _trendColor = (arrow) => ({
+            "↑": "#30D158", "↓": "#FF453A", "→": "#888", "–": "#888"
+          })[arrow] || "#888";
+
+          // Metric definitions: [key, label, getter, higherIsBetter]
+          const metricDefs = [
+            ["baseline",       "Global Baseline",       l => ({much_worse:1,worse:2,slightly_worse:2.5,baseline:3,same:3,slightly_better:3.5,better:4,much_better:5})[l.baseline_rating] || null, true],
+            ["energy",         "Energy / Capacity",     l => l.energy_capacity, true],
+            ["brain_fog",      "Brain Fog",              l => l.symptom_drift?.brain_fog, false],
+            ["gait_step",      "Gait (step effort)",    l => l.symptom_drift?.step_gait_effort, false],
+            ["gait_init",      "Gait (initiation)",     l => l.symptom_drift?.gait_initiation_effort, false],
+            ["gait_sustain",   "Sustained walking",     l => l.symptom_drift?.sustained_walking_effort, false],
+            ["neuro_fatigue",  "Neurologic fatigue",    l => l.symptom_drift?.neurologic_fatigue, false],
+            ["sleep",          "Sleep quality",         l => l.symptom_drift?.sleep_quality, true],
+            ["leg_stiff",      "Leg stiffness",         l => l.symptom_drift?.leg_stiffness, false],
+            ["post_rest",      "Post-rest stiffness",   l => l.symptom_drift?.post_rest_stiffness, false],
+            ["volatility",     "Symptom volatility",    l => l.symptom_drift?.symptom_volatility, false],
+            ["pain",           "Pain impact",           l => l.pain_impact?.severity, false],
+          ];
+
+          const metricRows = metricDefs.map(([key, label, getter, hib]) => {
+            const allVals = chronoLogs.map(getter).filter(v => v !== null && v !== undefined && v !== "" && Number.isFinite(Number(v))).map(Number);
+            if (!allVals.length) return null;
+            const avg = allVals.reduce((a,b)=>a+b,0)/allVals.length;
+            const early = _avg(earlyLogs, getter);
+            const late  = _avg(lateLogs, getter);
+            const arrow = _trend(early, late, hib);
+            const color = _trendColor(arrow);
+            return { label, avg: avg.toFixed(1), early: early?.toFixed(1)||"–", late: late?.toFixed(1)||"–", arrow, color, n: allVals.length };
+          }).filter(Boolean);
+
+          // Fast marker counts
+          const fmLabels = [
+            ["near_fall_or_balance_scare",   "Near-fall / balance scare"],
+            ["electrolyte_rescue_required",   "Electrolyte rescue"],
+            ["spasm_or_clonus_episode",       "Spasm / clonus"],
+            ["night_pain_woke_me",            "Night pain woke me"],
+            ["restless_legs_at_night",        "Restless legs"],
+          ];
+          const fmCounts = fmLabels.map(([key, label]) => ({
+            label,
+            count: chronoLogs.filter(l => l.fast_markers?.[key] === true).length,
+            pct: n ? Math.round(chronoLogs.filter(l => l.fast_markers?.[key] === true).length / n * 100) : 0
+          }));
+
+          // Protocol adherence %
+          const adherenceFields = [
+            ["nervonic_acid_taken", "Nervonic Acid"],
+            ["nac_taken",           "NAC"],
+            ["r_ala_taken",         "R-ALA"],
+            ["vitamin_e_taken",     "Vit E"],
+          ];
+          const adherenceRows = adherenceFields.map(([key, label]) => {
+            const taken = chronoLogs.filter(l => l.protocol_adherence?.[key] === true).length;
+            return { label, pct: n ? Math.round(taken / n * 100) : 0, taken, total: n };
+          });
+
+          // Confounder frequency
+          const confFields = [
+            ["poor_sleep_last_night",              "Poor sleep"],
+            ["unusual_physical_exertion",          "Unusual exertion"],
+            ["night_pain_likely_electrolyte_related","Electrolyte night pain"],
+            ["infection_symptoms",                 "Infection symptoms"],
+            ["gi_upset_or_dehydration_risk",       "GI / dehydration"],
+          ];
+          const confRows = confFields.map(([key, label]) => {
+            const cnt = chronoLogs.filter(l => l.context_changes?.[key] === true).length;
+            return { label, count: cnt, pct: n ? Math.round(cnt / n * 100) : 0 };
+          }).filter(r => r.count > 0);
+
+          // Functional test delta (first vs last)
+          const allTests = chronoLogs.flatMap(l => Array.isArray(l.functional_tests) ? l.functional_tests : [])
+            .filter(t => t && t.test_date)
+            .sort((a,b) => String(a.test_date).localeCompare(String(b.test_date)));
+          const firstTest = allTests[0] || null;
+          const lastTest  = allTests.length > 1 ? allTests[allTests.length - 1] : null;
+
+          const _testDelta = (a, b) => {
+            if (a === null || a === undefined || b === null || b === undefined) return "";
+            const diff = Number(b) - Number(a);
+            if (!Number.isFinite(diff)) return "";
+            const sign = diff > 0 ? "+" : "";
+            return ` (${sign}${diff.toFixed(diff % 1 === 0 ? 0 : 1)})`;
+          };
+
+          // ── SUMMARY HTML ─────────────────────────────────────────────────
+          const summaryHtml = `
+          <div style="background:#f7f7fa; border:2px solid #0A84FF; border-radius:10px; padding:18px; margin-bottom:28px; page-break-inside:avoid;">
+            <div style="font-size:17px; font-weight:800; color:#0A84FF; margin-bottom:14px; text-transform:uppercase; letter-spacing:0.5px;">
+              Period Summary — ${chronoLogs[0]?.date||""} to ${chronoLogs[n-1]?.date||""} (${n} day${n!==1?"s":""} logged)
+            </div>
+
+            <!-- SYMPTOM TRENDS -->
+            <div style="font-size:12px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Symptom Trends (avg · early avg → late avg · direction)</div>
+            <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:16px;">
+              <tr style="background:#e8e8f0; font-weight:700;">
+                <td style="padding:5px 8px;">Metric</td>
+                <td style="padding:5px 8px; text-align:center;">Avg</td>
+                <td style="padding:5px 8px; text-align:center;">Early</td>
+                <td style="padding:5px 8px; text-align:center;">Late</td>
+                <td style="padding:5px 8px; text-align:center;">Trend</td>
+                <td style="padding:5px 8px; text-align:center;">N</td>
+              </tr>
+              ${metricRows.map((r,i) => `
+              <tr style="background:${i%2===0?"#fff":"#f5f5f8"};">
+                <td style="padding:5px 8px;">${r.label}</td>
+                <td style="padding:5px 8px; text-align:center;">${r.avg}</td>
+                <td style="padding:5px 8px; text-align:center; color:#888;">${r.early}</td>
+                <td style="padding:5px 8px; text-align:center; color:#888;">${r.late}</td>
+                <td style="padding:5px 8px; text-align:center; font-size:16px; font-weight:800; color:${r.color};">${r.arrow}</td>
+                <td style="padding:5px 8px; text-align:center; color:#999;">${r.n}</td>
+              </tr>`).join("")}
+            </table>
+
+            <!-- PROTOCOL ADHERENCE -->
+            <div style="font-size:12px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Protocol Adherence</div>
+            <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:16px;">
+              ${adherenceRows.map((r,i) => `
+              <tr style="background:${i%2===0?"#fff":"#f5f5f8"};">
+                <td style="padding:5px 8px;">${r.label}</td>
+                <td style="padding:5px 8px;">${r.taken} / ${r.total} days</td>
+                <td style="padding:5px 8px; font-weight:700; color:${r.pct>=80?"#1a7a2e":r.pct>=60?"#b36800":"#cc2200"};">${r.pct}%</td>
+              </tr>`).join("")}
+            </table>
+
+            <!-- FAST MARKERS -->
+            <div style="font-size:12px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Fast Markers (event days)</div>
+            <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:16px;">
+              ${fmCounts.map((r,i) => `
+              <tr style="background:${i%2===0?"#fff":"#f5f5f8"};">
+                <td style="padding:5px 8px;">${r.label}</td>
+                <td style="padding:5px 8px;">${r.count} / ${n} days</td>
+                <td style="padding:5px 8px; color:#888;">${r.pct}%</td>
+              </tr>`).join("")}
+            </table>
+
+            ${confRows.length ? `
+            <!-- CONFOUNDERS -->
+            <div style="font-size:12px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Confounder Frequency</div>
+            <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:16px;">
+              ${confRows.map((r,i) => `
+              <tr style="background:${i%2===0?"#fff":"#f5f5f8"};">
+                <td style="padding:5px 8px;">${r.label}</td>
+                <td style="padding:5px 8px;">${r.count} / ${n} days</td>
+                <td style="padding:5px 8px; color:#888;">${r.pct}%</td>
+              </tr>`).join("")}
+            </table>` : ""}
+
+            ${firstTest ? `
+            <!-- FUNCTIONAL TEST DELTA -->
+            <div style="font-size:12px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Functional Tests${lastTest ? " — First vs Last" : ""}</div>
+            <table style="width:100%; border-collapse:collapse; font-size:12px;">
+              <tr style="background:#e8e8f0; font-weight:700;">
+                <td style="padding:5px 8px;">Measure</td>
+                <td style="padding:5px 8px; text-align:center;">${firstTest.test_date}</td>
+                ${lastTest ? `<td style="padding:5px 8px; text-align:center;">${lastTest.test_date}</td><td style="padding:5px 8px; text-align:center;">Δ</td>` : ""}
+              </tr>
+              <tr style="background:#fff;">
+                <td style="padding:5px 8px;">6MW Distance (m)</td>
+                <td style="padding:5px 8px; text-align:center;">${vr(firstTest.six_minute_walk?.distance_m)}</td>
+                ${lastTest ? `<td style="padding:5px 8px; text-align:center;">${vr(lastTest.six_minute_walk?.distance_m)}</td><td style="padding:5px 8px; text-align:center; font-weight:700;">${_testDelta(firstTest.six_minute_walk?.distance_m, lastTest.six_minute_walk?.distance_m)}</td>` : ""}
+              </tr>
+              <tr style="background:#f5f5f8;">
+                <td style="padding:5px 8px;">6MW Rest breaks</td>
+                <td style="padding:5px 8px; text-align:center;">${vr(firstTest.six_minute_walk?.rest_breaks_count)}</td>
+                ${lastTest ? `<td style="padding:5px 8px; text-align:center;">${vr(lastTest.six_minute_walk?.rest_breaks_count)}</td><td style="padding:5px 8px; text-align:center; font-weight:700;">${_testDelta(firstTest.six_minute_walk?.rest_breaks_count, lastTest.six_minute_walk?.rest_breaks_count)}</td>` : ""}
+              </tr>
+              <tr style="background:#fff;">
+                <td style="padding:5px 8px;">5x STS Time (s)</td>
+                <td style="padding:5px 8px; text-align:center;">${vr(firstTest.sit_to_stand_5x?.time_seconds)}</td>
+                ${lastTest ? `<td style="padding:5px 8px; text-align:center;">${vr(lastTest.sit_to_stand_5x?.time_seconds)}</td><td style="padding:5px 8px; text-align:center; font-weight:700;">${_testDelta(firstTest.sit_to_stand_5x?.time_seconds, lastTest.sit_to_stand_5x?.time_seconds)}</td>` : ""}
+              </tr>
+            </table>` : `<div style="font-size:12px; color:#999;">No functional tests recorded in this period.</div>`}
+
+            <div style="margin-top:14px; font-size:12.5px; color:#bbb; line-height:1.6;">
+              Trend arrows compare the average of the first third vs last third of the period (${third} day${third!==1?"s":""} each).
+              ↑ = improving &nbsp;↓ = worsening &nbsp;→ = stable (&lt;0.3 point difference).
+              Descriptive only — does not adjust for confounders or missing values.
+            </div>
+          </div>`;
+
+          let html = `
+            <div class="report-header">
+              <p class="report-credit">Researched and Prepared by Patrick Shipp Nutrition, RNCP | www.patrickshipp.com</p>
+              <h1>Protocol Report: ${pn}</h1>
+              ${dob ? `<p><strong>DOB:</strong> ${dob}</p>` : ""}
+              <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+              <p><strong>Period:</strong> ${opts?.startDate||chronoLogs[0]?.date||""} → ${opts?.endDate||chronoLogs[n-1]?.date||""} &nbsp;|&nbsp; <strong>${n}</strong> day${n!==1?"s":""} logged</p>
+            </div>
+            ${summaryHtml}`;
+
+          logs.forEach(log => {
+            const protocol = log.protocol_adherence || log.protocol || {};
+            const vitals = log.vitals || {};
+            const vAm = vitals.morning || {};
+            const vPm = vitals.evening || {};
+            const sd = log.symptom_drift || log.ratings || {};
+            const pi = log.pain_impact || {};
+            const ctx = log.context_changes || log.confounders || {};
+            const fm = log.fast_markers || log.fastMarkers || {};
+            const ext = log.external_neuromuscular_training || log.external_variables || {};
+            const labs = log.lab || log.periodic_labs || {};
+            const winsArr = Array.isArray(log.positive_events) ? log.positive_events : (Array.isArray(log.wins) ? log.wins : []);
+            const adverseArr = Array.isArray(log.adverse_events) ? log.adverse_events : [];
+            const dayTitle = vr(log.date);
+
+            html += `<div class="report-day-block"><div class="day-title">Date: ${dayTitle}</div>`;
+
+            html += `<div class="report-section"><h3>Protocol Adherence</h3>
+              <p>NA: ${yn(pick(protocol,"nervonic_acid_taken","nervonic_acid"))}, NAC: ${yn(pick(protocol,"nac_taken","nac"))}, ALA: ${yn(pick(protocol,"r_ala_taken","ala"))}, Vit E: ${yn(pick(protocol,"vitamin_e_taken","vit_e"))}</p>
+            </div>`;
+
+            html += `<div class="report-section"><h3>Vitals AM &amp; PM</h3>
+              <p><strong>AM:</strong> BP: ${bpRender(vAm)} | HR: ${(pick(vAm,"hr")&&pick(vAm,"hr")!==0) ? pick(vAm,"hr")+" bpm" : "N/A"}</p>
+              <p><strong>PM:</strong> BP: ${bpRender(vPm)} | HR: ${(pick(vPm,"hr")&&pick(vPm,"hr")!==0) ? pick(vPm,"hr")+" bpm" : "N/A"}</p>
+            </div>`;
+
+            html += `<div class="report-section"><h3>Global Status</h3>
+              <p>Baseline Rating: ${vr(pick(log,"baseline_rating","global_baseline"))} (Confidence: ${vr(pick(log,"baseline_confidence"))})</p>
+              <p>Energy/Capacity: ${vr(pick(log,"energy_capacity"))} (Confidence: ${vr(pick(log,"energy_confidence"))})</p>
+            </div>`;
+
+            html += `<div class="report-section"><h3>Fast Markers</h3><ul>
+              <li>Near-fall or balance scare: ${yn(pick(fm,"near_fall_or_balance_scare","near_fall"))}</li>
+              <li>Electrolyte rescue required: ${yn(pick(fm,"electrolyte_rescue_required","electrolyte_rescue"))}</li>
+              <li>Spasm or clonus episode: ${yn(pick(fm,"spasm_or_clonus_episode","spasm_or_clonus"))}</li>
+              <li>Night pain woke me: ${yn(pick(fm,"night_pain_woke_me"))}</li>
+              <li>Restless legs at night: ${yn(pick(fm,"restless_legs_at_night","restless_legs"))}</li>
+            </ul></div>`;
+
+            html += `<div class="report-section"><h3>Symptom Shift (0-10)</h3><ul>
+              <li>Brain Fog: ${vr(pick(sd,"brain_fog"))}</li>
+              <li>Step-by-step gait effort: ${vr(pick(sd,"step_gait_effort","gait_effort_step_by_step","gait_effort"))}</li>
+              <li>Gait initiation effort: ${vr(pick(sd,"gait_initiation_effort","gait_initiation"))}</li>
+              <li>Sustained walking effort: ${vr(pick(sd,"sustained_walking_effort","sustained_walking"))}</li>
+              <li>Neurologic fatigue: ${vr(pick(sd,"neurologic_fatigue"))}</li>
+              <li>Sleep Quality: ${vr(pick(sd,"sleep_quality"))}</li>
+              <li>Leg Stiffness: ${vr(pick(sd,"leg_stiffness"))}</li>
+              <li>Post-rest stiffness: ${vr(pick(sd,"post_rest_stiffness"))}</li>
+              <li>Symptom volatility: ${vr(pick(sd,"symptom_volatility"))}</li>
+            </ul></div>`;
+
+            html += `<div class="report-section"><h3>Pain Impact</h3>
+              <p>Severity: ${vr(pick(pi,"severity"))} | Driver: ${vr(pick(pi,"primary_driver","driver"))}</p>
+              <p>Interfered sleep: ${yn(pick(pi,"interfered_with_sleep"))}, Limited walk: ${yn(pick(pi,"limited_walking"))}, Forced rest: ${yn(pick(pi,"forced_extra_rest","forced_rest_breaks"))}, Meds: ${yn(pick(pi,"required_rescue_meds","required_meds"))}, Changed gait: ${yn(pick(pi,"changed_gait_mechanics","changed_gait"))}</p>
+            </div>`;
+
+            html += `<div class="report-section"><h3>Confounders</h3>
+              <p>Poor sleep: ${yn(pick(ctx,"poor_sleep_last_night"))}, Unusual exertion: ${yn(pick(ctx,"unusual_physical_exertion"))}, Medication timing: ${yn(pick(ctx,"medication_timing_change"))}, Dose change: ${yn(pick(ctx,"dose_change"))}, Missed dose: ${yn(pick(ctx,"missed_dose"))}, New supplement: ${yn(pick(ctx,"new_supplement_added"))}, Travel/Schedule: ${yn(pick(ctx,"travel_or_disrupted_schedule"))}, High stress (0-3): ${vr(pick(ctx,"high_stress"))}, Infection: ${yn(pick(ctx,"infection_symptoms"))}, GI/Dehydration: ${yn(pick(ctx,"gi_upset_or_dehydration_risk"))}, Electrolyte night pain: ${yn(pick(ctx,"night_pain_likely_electrolyte_related"))}, Nothing unusual: ${yn(pick(ctx,"nothing_unusual"))}</p>
+            </div>`;
+
+            const extLevel = (ext && typeof ext.level !== "undefined") ? ext.level : undefined;
+            const extLabel = (ext && ext.label) ? ext.label : "";
+            html += `<div class="report-section"><h3>External Variables</h3>
+              <p>Neuro Training Level: ${vr(extLevel)}${extLabel ? ` (${extLabel})` : ""}</p>
+            </div>`;
+
+            const vlcfa = pick(labs,"vlcfa_c26","vlcfa");
+            const liver = pick(labs,"liver_alt_ast");
+            const labNotes = pick(labs,"notes");
+            if (vlcfa !== undefined || liver !== undefined || labNotes !== undefined) {
+              html += `<div class="report-section"><h3>Periodic Lab Results</h3>
+                <p>VLCFA: ${vr(vlcfa)}</p>
+                <p>Liver (ALT/AST): ${vr(liver)}</p>
+                <p>Notes: ${vr(labNotes)}</p>
+              </div>`;
+            }
+
+            // FIX #2: Functional tests now merged from tests collection; render all fields
+            html += `<div class="report-section"><h3>Functional Tests</h3>`;
+            const ftArr = Array.isArray(log.functional_tests) ? log.functional_tests : [];
+            if (ftArr.length > 0) {
+              ftArr.forEach(ft => {
+                const sw = ft.six_minute_walk || {};
+                const sts = ft.sit_to_stand_5x || {};
+                html += `<p><strong>Test date:</strong> ${vr(ft.test_date)}</p>`;
+                html += `<p><em>6-Min Walk:</em> Distance: ${vr(sw.distance_m,"m")}, Breaks: ${vr(sw.rest_breaks_count)}, Device: ${vr(sw.assistive_device)}, RPE: ${vr(sw.perceived_exertion)}</p>`;
+                html += `<p><em>5x Sit-Stand:</em> Time: ${vr(sts.time_seconds,"s")}, Used arms: ${vr(sts.used_arms)}, Chair: ${vr(sts.chair_height_cm,"cm")}</p>`;
+                if (ft.notes) html += `<p>Notes: ${vr(ft.notes)}</p>`;
+              });
+            } else {
+              html += `<p>N/A</p>`;
+            }
+            html += `</div>`;
+
+            html += `<div class="report-section"><h3>Notes</h3>
+              <p><strong>Food:</strong> ${escapeHTML(vr(pick(log,"food_notes")))}</p>
+              <p><strong>General:</strong> ${escapeHTML(vr(pick(log,"notes","general_notes")))}</p>
+            </div>`;
+
+            html += `<div class="report-section"><h3>Adverse Events</h3>`;
+            if (adverseArr.length > 0) {
+              adverseArr.forEach(ae => {
+                html += `<p>• ${escapeHTML(vr(ae?.desc || ae?.description))}${ae?.trigger ? ` [${escapeHTML(ae.trigger)}]` : ""}${ae?.durationMin ? ` (${ae.durationMin}m)` : ""}${ae?.detail ? ` — ${escapeHTML(ae.detail)}` : ""}</p>`;
+              });
+            } else { html += `<p>N/A</p>`; }
+            html += `</div>`;
+
+            html += `<div class="report-section"><h3>Wins</h3>`;
+            if (winsArr.length > 0) {
+              winsArr.forEach(w => {
+                html += `<p>• ${escapeHTML(vr(w?.desc || w?.description))}${w?.trigger ? ` [${escapeHTML(w.trigger)}]` : ""}${w?.durationMin ? ` (${w.durationMin}m)` : ""}${w?.detail ? ` — ${escapeHTML(w.detail)}` : ""}</p>`;
+              });
+            } else { html += `<p>N/A</p>`; }
+            html += `</div>`;
+
+            html += `<div class="report-section"><h3>Daily Summary</h3><p>${escapeHTML(vr(pick(log,"daily_summary")))}</p></div>`;
+            html += `</div>`; // end day block
+          });
+
+          // FIX #4: Print via popup window to avoid iOS Safari scroll container truncation
+          const reportView = document.getElementById("report-view");
+          reportView.innerHTML = html;
+          if (!reportView.textContent || !reportView.textContent.trim()) {
+            alert("Nothing to export (report is empty.)"); return;
+          }
+          reportView.style.display = "block";
+          document.title = "Protocol Report";
+
+          const cleanup = () => {
+            reportView.innerHTML = "";
+            reportView.style.display = "none";
+            window.removeEventListener("afterprint", cleanup);
+          };
+          window.addEventListener("afterprint", cleanup);
+
+          if (opts?.printWindow && typeof opts.printWindow.print === "function") {
+            const w = opts.printWindow;
+            const doc = w.document;
+            const styleEl = document.querySelector("style");
+            const styleText = styleEl ? styleEl.innerHTML : "";
+            doc.open();
+            // FIX #4: Override scroll container CSS in print window so iOS Safari renders full content
+            doc.write(`<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Protocol Report</title>
+  <style>${styleText}</style>
+  <style>
+    /* FIX: iOS Safari print — never use scroll containers or vh units */
+    body { overflow: visible !important; background: #fff !important; }
+    #report-view {
+      display: block !important;
+      position: static !important;
+      height: auto !important;
+      overflow: visible !important;
+      width: 100% !important;
+      padding: 20px !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="report-view" style="display:block;">${html}</div>
+</body>
+</html>`);
+            doc.close();
+            w.focus();
+            setTimeout(() => {
+              try { w.print(); } catch(e) { console.error(e); }
+              setTimeout(() => { try { w.close(); } catch(e) {} }, 500);
+              cleanup();
+            }, 350);
+          } else {
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                window.print();
+                setTimeout(cleanup, 5000);
+              });
+            });
+          }
+        } catch (err) {
+          console.error("Export error:", err);
+          alert("Export failed: " + err.message);
+        }
+      }
+
+      // FIX #2: exportPassengerReport also fetches/merges functional tests
+      async function exportPassengerReport(profileId, opts = {}) {
+        const uid = window.CURRENT_UID;
+        if (!uid) { alert("Must be logged in to export."); return; }
+        const yn = (val) => (val === true ? "Yes" : (val === false ? "No" : "N/A"));
+        const vr = (val, suffix = "") => {
+          if (val === null || val === undefined || val === "") return "N/A";
+          return String(val) + suffix;
+        };
+        try {
+          const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
+          const snapshot = await logsRef.orderBy("date", opts?.dir || "desc").get();
+          let logs = snapshot.docs.map(d => d.data());
+          const startDate = opts?.startDate || null;
+          const endDate = opts?.endDate || null;
+          if (startDate || endDate) {
+            logs = logs.filter(l => {
+              const d = l?.date || "";
+              if (!d) return false;
+              if (startDate && d < startDate) return false;
+              if (endDate && d > endDate) return false;
+              return true;
+            });
+          }
+          if (!logs.length) { alert("No data found for that date range."); return; }
+
+          const pn = (String(opts?.patientName || (document.getElementById("export-patient-name")?.value || ""))).trim() || "Nieve";
+          const dob = String(opts?.patientDob || (document.getElementById("export-patient-dob")?.value || "")).trim();
+
+          let html = `
+            <div class="report-header">
+            <p class="report-credit">Researched and Prepared by Patrick Shipp Nutrition, RNCP | www.patrickshipp.com</p>
+              <h1>Passenger Report: ${pn}</h1>
+              ${dob ? `<p><strong>DOB:</strong> ${dob}</p>` : ""}
+              <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+              <p><strong>Records:</strong> ${logs.length}</p>
+            </div>`;
+
+          logs.forEach(log => {
+            const protocol = log.protocol_adherence || {};
+            const safety = log.safety || {};
+            html += `<div class="report-day-block"><div class="day-title">Date: ${vr(log.date)}</div>`;
+            html += `<div class="report-section"><h3>Protocol Adherence</h3>
+              <p>NA: ${yn(protocol.nervonic_acid_taken)} | NAC: ${yn(protocol.nac_taken)} | ALA: ${yn(protocol.r_ala_taken)} | Vit E: ${yn(protocol.vitamin_e_taken)}</p>
+            </div>`;
+            html += `<div class="report-section"><h3>Safety / Anything different?</h3>
+              <p>Feels different: ${yn(safety.feels_different)}</p>
+              <p><strong>Details:</strong> ${escapeHTML(vr(safety.details))}</p>
+            </div>`;
+            html += `<div class="report-section"><h3>Notes</h3><p>${escapeHTML(vr(log.notes))}</p></div>`;
+            html += `</div>`;
+          });
+
+          const reportView = document.getElementById("report-view");
+          reportView.innerHTML = html;
+          if (!reportView.textContent || !reportView.textContent.trim()) {
+            alert("Nothing to export (report is empty.)"); return;
+          }
+          reportView.style.display = "block";
+          document.title = "Passenger Report";
+
+          const cleanup = () => {
+            reportView.innerHTML = "";
+            reportView.style.display = "none";
+            window.removeEventListener("afterprint", cleanup);
+          };
+          window.addEventListener("afterprint", cleanup);
+
+          if (opts?.printWindow && typeof opts.printWindow.print === "function") {
+            const w = opts.printWindow;
+            const doc = w.document;
+            const styleEl = document.querySelector("style");
+            const styleText = styleEl ? styleEl.innerHTML : "";
+            doc.open();
+            doc.write(`<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Passenger Report</title>
+  <style>${styleText}</style>
+  <style>
+    body { overflow: visible !important; background: #fff !important; }
+    #report-view { display:block !important; position:static !important; height:auto !important; overflow:visible !important; width:100% !important; padding:20px !important; }
+  </style>
+</head>
+<body>
+  <div id="report-view" style="display:block;">${html}</div>
+</body>
+</html>`);
+            doc.close();
+            w.focus();
+            setTimeout(() => {
+              try { w.print(); } catch(e) { console.error(e); }
+              setTimeout(() => { try { w.close(); } catch(e) {} }, 500);
+              cleanup();
+            }, 350);
+          } else {
+            requestAnimationFrame(() => { requestAnimationFrame(() => { window.print(); setTimeout(cleanup, 5000); }); });
+          }
+        } catch (err) {
+          console.error("Passenger export error:", err);
+          alert("Export failed: " + (err?.message || err));
+        }
+      }
+
+      window.__EXPORT_RUN = async function(args = {}) {
+        const patientId = args.patientId || "patrick";
+        const label = args.label || "";
+        const opts = {
+          printWindow: args.printWindow,
+          startDate: args.start || args.startDate || null,
+          endDate: args.end || args.endDate || null,
+          dir: args.dir || "desc",
+          patientName: args.patientName || "",
+          patientDob: args.patientDob || ""
+        };
+        const isPassenger = (label || "").toLowerCase() === "passenger" || patientId !== "patrick";
+        if (isPassenger) {
+          await exportPassengerReport(patientId, opts);
+        } else {
+          await exportProtocolReport(patientId, opts);
+        }
+      };
+
+      function setBtn(btnId, busy, text) {
+        const b = el(btnId);
+        if (!b) return;
+        b.disabled = !!busy;
+        if (text) b.textContent = text;
+      }
+
+      window.setNeuromuscularTraining = function(level, label) {
+        const lvl = (typeof level === "number") ? level : parseInt(level, 10);
+        const allowed = { 0: "none", 1: "light", 2: "full" };
+        const finalLevel = (lvl in allowed) ? lvl : 0;
+        const finalLabel = allowed[finalLevel];
+        const lvlEl = byId("p-nmt-level");
+        const labEl = byId("p-nmt-label");
+        if (lvlEl) lvlEl.value = String(finalLevel);
+        if (labEl) labEl.value = finalLabel;
+        [0,1,2].forEach(i => {
+          const b = byId(`p-nmt-btn-${i}`);
+          if (!b) return;
+          if (i === finalLevel) b.classList.add("active");
+          else b.classList.remove("active");
+        });
+      };
+
+
+      function hasLabData() {
+        return !!(trimText(val("lab-vlcfa")) || trimText(val("lab-liver")) || trimText(val("lab-notes")));
+      }
+
+      function hasFunctionalTestData() {
+        return !!(val("ft-6m-distance") || val("ft-5x-time") || val("ft-notes"));
+      }
+
+      window.handlePilotSave = async function() {
+        setBtn("p-save-log", true, "SAVING...");
+        try {
+          // 1. Always save the daily log
+          await saveUserLog("patrick", collectPilotPayload());
+
+          // 2. Save labs if any lab fields were filled in
+          if (hasLabData()) {
+            await saveUserLog("patrick", collectLabPayload());
+          }
+
+          // 3. Save functional test if any test fields were filled in
+          if (hasFunctionalTestData()) {
+            const payload = collectFunctionalTestPayload();
+            const id = `${payload.test_date}_${Date.now()}`;
+            await db.doc(userProfilePath("patrick", "tests", id)).set(
+              { ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp(), clientCreatedAt: new Date().toISOString() },
+              { merge: true }
+            );
+          }
+
+          window.clearDraft();
+          setBtn("p-save-log", false, "SAVED ✓");
+          setTimeout(() => setBtn("p-save-log", false, "SAVE DAILY LOG"), 1200);
+        } catch(e) {
+          console.error(e);
+          setBtn("p-save-log", false, "SAVE FAILED");
+          alert("Save failed: " + (e.message || e));
+        }
+      };
+
+      function collectFunctionalTestPayload() {
+        const testDate = trimText(val("ft-date")) || localDateStr();
+        return {
+          test_date: testDate,
+          six_minute_walk: {
+            distance_m: asNumber(val("ft-6m-distance")),
+            rest_breaks_count: asNumber(val("ft-6m-restbreaks")),
+            assistive_device: trimText(val("ft-6m-device")) || null,
+            course_length_m: asNumber(val("ft-6m-course")),
+            perceived_exertion: asNumber(val("ft-6m-rpe"))
+          },
+          sit_to_stand_5x: {
+            time_seconds: asNumber(val("ft-5x-time")),
+            used_arms: mustEnum(val("ft-5x-arms"), ["yes","no"], null),
+            chair_height_cm: asNumber(val("ft-5x-chair"))
+          },
+          notes: trimText(val("ft-notes")) || null
+        };
+      }
+
+      window.saveFunctionalTest = async function() {
+        const btns = document.querySelectorAll('[onclick="window.saveFunctionalTest()"]');
+        btns.forEach(b => { try { b.disabled = true; b.textContent = "SAVING..."; } catch(e){} });
+        try {
+          const payload = collectFunctionalTestPayload();
+          const id = `${payload.test_date}_${Date.now()}`;
+          const ref = db.doc(userProfilePath("patrick", "tests", id));
+          await ref.set({ ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp(), clientCreatedAt: new Date().toISOString() }, { merge: true });
+          btns.forEach(b => { try { b.textContent = "SAVED ✓"; } catch(e){} });
+          setTimeout(() => btns.forEach(b => { try { b.disabled = false; b.textContent = "SAVE FUNCTIONAL TEST"; } catch(e){} }), 1400);
+        } catch (e) {
+          console.error(e);
+          btns.forEach(b => { try { b.disabled = false; b.textContent = "SAVE FUNCTIONAL TEST"; } catch(e){} });
+          alert("Functional test save failed: " + (e.message || e));
+        }
+      };
+
+      window.handlePassengerSave = async function() {
+        setBtn("n-save-log", true, "SAVING...");
+        try {
+          await saveUserLog("nieve", collectPassengerPayload());
+          setBtn("n-save-log", false, "SAVED ✓");
+          setTimeout(() => setBtn("n-save-log", false, "SAVE DAILY LOG"), 1200);
+        } catch(e) {
+          console.error(e);
+          setBtn("n-save-log", false, "SAVE FAILED");
+          alert("Save failed: " + (e.message || e));
+        }
+      };
+
+
+      window.handleLabSave = async function() {
+        setBtn("lab-save-results-btn", true, "SAVING...");
+        try {
+          await saveUserLog("patrick", collectLabPayload());
+          setBtn("lab-save-results-btn", false, "SAVED ✓");
+          setTimeout(() => setBtn("lab-save-results-btn", false, "SAVE LAB RESULTS ONLY"), 1600);
+        } catch(e) {
+          console.error(e);
+          setBtn("lab-save-results-btn", false, "SAVE LAB RESULTS ONLY");
+          alert("Lab save failed: " + (e.message || e));
+        }
+      };
+
+      window.showTrendsTab = function(which) {
+        const sum = el("trends-summary-pane");
+        const charts = el("trends-charts-pane");
+        const details = el("trends-details-pane");
+        const t1 = el("tab-summary"); const t2 = el("tab-charts"); const t3 = el("tab-details");
+        if (!sum || !charts || !t1 || !t2) return;
+        const hasDetails = !!details && !!t3;
+        sum.style.display = "none"; charts.style.display = "none";
+        if (hasDetails) details.style.display = "none";
+        t1.classList.remove("active"); t2.classList.remove("active");
+        if (hasDetails) t3.classList.remove("active");
+        if (which === "charts") {
+          charts.style.display = "block"; t2.classList.add("active");
+          if (typeof window.renderTrendsCharts === "function") window.renderTrendsCharts();
+          return;
+        }
+        if (which === "details" && hasDetails) {
+          details.style.display = "block"; t3.classList.add("active");
+          if (typeof window.renderTrendsDetails === "function") window.renderTrendsDetails();
+          return;
+        }
+        sum.style.display = "block"; t1.classList.add("active");
+      };
+
+      window.renderTrends = async function() {
+        try {
+          const logs = await fetchPatientLogs("patrick", 30);
+          const elSum = el("change-summary");
+          if (!elSum) return;
+          const withRating = logs.filter(l => !!l.baseline_rating);
+          const counts = { much_worse:0, worse:0, slightly_worse:0, baseline:0, slightly_better:0, better:0, much_better:0 };
+          withRating.forEach(l => { if (counts[l.baseline_rating] !== undefined) counts[l.baseline_rating]++; });
+          elSum.innerHTML = `
+            <div>Last 30 days: <strong>${logs.length}</strong> logs found. Baseline rating recorded on <strong>${withRating.length}</strong> days.</div>
+            <div style="margin-top:10px;">much better: ${counts.much_better} • better: ${counts.better} • slightly better: ${counts.slightly_better} • baseline: ${counts.baseline} • slightly worse: ${counts.slightly_worse} • worse: ${counts.worse} • much worse: ${counts.much_worse}</div>
+            <div style="margin-top:10px; color:var(--text-secondary); font-size:0.85rem;">Note: Descriptive only. Does not adjust for confounders or missing data.</div>`;
+        } catch(e) { console.error(e); }
+      };
+
+      window._trendCharts = window._trendCharts || {};
+      function _destroyTrendChart(key){ try { if(window._trendCharts[key]){ window._trendCharts[key].destroy(); delete window._trendCharts[key]; } } catch(e){} }
+
+      function _buildLineChart(canvasId, labels, data, yMin, yMax, seriesLabel){
+        const canvas = document.getElementById(canvasId);
+        if(!canvas) return;
+        const ctx = canvas.getContext("2d");
+        _destroyTrendChart(canvasId);
+        window._trendCharts[canvasId] = new Chart(ctx, {
+          type: "line",
+          data: { labels, datasets: [{ label: seriesLabel, data, tension: 0.25, spanGaps: false, pointRadius: 3 }] },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: true } },
+            scales: { y: { min: yMin, max: yMax, ticks: { stepSize: 1 } }, x: { ticks: { maxRotation: 0, autoSkip: true } } }
+          }
+        });
+      }
+
+      function _mapBaselineTo15(v){
+        if(v == null) return null;
+        if(typeof v === "number") return v;
+        const s = String(v).toLowerCase();
+        if(s === "much_worse") return 1; if(s === "worse") return 2; if(s === "slightly_worse") return 2.5;
+        if(s === "baseline" || s === "same") return 3; if(s === "slightly_better") return 3.5;
+        if(s === "better") return 4; if(s === "much_better") return 5;
+        return null;
+      }
+      function _num(v){ const n = Number(v); return Number.isFinite(n) ? n : null; }
+      function _getPainSeverity(log){ if(log?.pain_impact?.severity != null) return _num(log.pain_impact.severity); return null; }
+      function _getSymptom(log, key){ if(log?.symptom_drift?.[key] != null) return _num(log.symptom_drift[key]); return null; }
+
+      window.renderTrendsCharts = async function() {
+        try {
+          const logs = await fetchPatientLogs("patrick", 30);
+          const ordered = [...logs].sort((a,b) => String(a.date||"").localeCompare(String(b.date||"")));
+          const labels = ordered.map(l => l.date || "");
+          _buildLineChart("chart-global", labels, ordered.map(l => _mapBaselineTo15(l.baseline_rating)), 1, 5, "Global baseline (1–5)");
+          _buildLineChart("chart-energy", labels, ordered.map(l => _num(l.energy_capacity)), 0, 10, "Energy / Capacity (0–10)");
+          _buildLineChart("chart-pain", labels, ordered.map(l => _getPainSeverity(l)), 0, 10, "Pain impact (0–10)");
+          _buildLineChart("chart-sleep", labels, ordered.map(l => _getSymptom(l,"sleep_quality")), 0, 10, "Sleep quality (0–10)");
+          _buildLineChart("chart-gait-effort", labels, ordered.map(l => _getSymptom(l,"step_gait_effort")), 0, 10, "Gait effort (0–10)");
+          _buildLineChart("chart-leg-stiffness", labels, ordered.map(l => _getSymptom(l,"leg_stiffness")), 0, 10, "Leg stiffness (0–10)");
+          _buildLineChart("chart-brain-fog", labels, ordered.map(l => _getSymptom(l,"brain_fog")), 0, 10, "Brain fog (0–10)");
+          _buildLineChart("chart-neuro-fatigue", labels, ordered.map(l => _getSymptom(l,"neurologic_fatigue")), 0, 10, "Neurologic fatigue (0–10)");
+          setTimeout(() => { Object.values(window._trendCharts).forEach(ch => { try{ ch.resize(); }catch(e){} }); }, 50);
+        } catch (err) { console.warn("renderTrendsCharts failed:", err); }
+      };
+
+      window.renderTrendsDetails = async function() {
+        const host = el("trends-details-content");
+        if (!host) return;
+        const logs = await fetchPatientLogs("patrick", 365);
+        const rows = [];
+        function pushMetric(key, label, getter) {
+          const vals = [];
+          for (const l of logs) {
+            const v = getter(l);
+            if (v === null || v === undefined || v === "") continue;
+            const n = Number(v);
+            if (!Number.isFinite(n)) continue;
+            vals.push({ date: l.date, v: n });
+          }
+          if (vals.length === 0) return;
+          vals.sort((a,b)=> String(a.date).localeCompare(String(b.date)));
+          const ns = vals.map(x=>x.v);
+          const mean = ns.reduce((a,b)=>a+b,0) / ns.length;
+          const last = vals[vals.length-1];
+          rows.push({ label, n: ns.length, mean, min: Math.min(...ns), max: Math.max(...ns), lastDate: last.date, last: last.v });
+        }
+        pushMetric("baseline_rating","Global Baseline Rating (1–5)",l=>_mapBaselineTo15(l.baseline_rating));
+        pushMetric("energy_capacity","Energy / Capacity (0–10)",l=>l.energy_capacity);
+        pushMetric("pain_impact","Pain Impact (0–10)",l=>(l.pain_impact?l.pain_impact.severity:null));
+        pushMetric("sleep_quality","Sleep Quality (0–10)",l=>(l.symptom_drift?l.symptom_drift.sleep_quality:null));
+        pushMetric("brain_fog","Brain Fog (0–10)",l=>(l.symptom_drift?l.symptom_drift.brain_fog:null));
+        pushMetric("gait_effort","Gait Effort (0–10)",l=>(l.symptom_drift?l.symptom_drift.step_gait_effort:null));
+        pushMetric("gait_initiation","Gait initiation effort (0–10)",l=>(l.symptom_drift?l.symptom_drift.gait_initiation_effort:null));
+        pushMetric("sustained_walking","Sustained walking effort (0–10)",l=>(l.symptom_drift?l.symptom_drift.sustained_walking_effort:null));
+        pushMetric("neurologic_fatigue","Neurologic fatigue (0–10)",l=>(l.symptom_drift?l.symptom_drift.neurologic_fatigue:null));
+        pushMetric("leg_stiffness","Leg Stiffness (0–10)",l=>(l.symptom_drift?l.symptom_drift.leg_stiffness:null));
+        pushMetric("post_rest_stiffness","Post-rest stiffness (0–10)",l=>(l.symptom_drift?l.symptom_drift.post_rest_stiffness:null));
+        pushMetric("symptom_volatility","Symptom volatility (0–10)",l=>(l.symptom_drift?l.symptom_drift.symptom_volatility:null));
+
+        if (rows.length === 0) { host.innerHTML = '<div class="muted">No numeric trend data found yet.</div>'; return; }
+        host.innerHTML = rows.map(r => `
+          <div class="row" style="padding:10px 0; border-bottom:1px solid rgba(255,255,255,.08);">
+            <div style="font-weight:700;">${r.label}</div>
+            <div class="muted" style="margin-top:6px;">N=${r.n} • mean ${(Math.round(r.mean*10)/10).toFixed(1)} • min ${r.min} • max ${r.max} • last ${r.last} (${r.lastDate})</div>
+          </div>`).join("");
+      };
+
+      // ── DRAFT SAVE / RESTORE ──────────────────────────────────────────────
+      // Persists the Pilot form to localStorage keyed by today's date.
+      // Restores automatically on load if the draft is from today.
+      // Cleared when the user successfully saves to Firestore.
+
+      const DRAFT_KEY = () => `protocol_draft_patrick_${localDateStr()}`;
+
+      function serializeEpisodeList(containerId) {
+        const wrap = document.getElementById(containerId);
+        if (!wrap) return [];
+        return [...wrap.querySelectorAll(".event-item")].map(item => ({
+          desc: item.querySelector("textarea")?.value || "",
+          durationMin: item.querySelector("input.duration")?.value || "",
+          trigger: item.querySelector("select.trigger")?.value || "",
+          detail: item.querySelector("input.detail")?.value || ""
+        }));
+      }
+
+      function restoreEpisodeList(containerId, items, kind) {
+        const wrap = document.getElementById(containerId);
+        if (!wrap || !Array.isArray(items)) return;
+        wrap.innerHTML = "";
+        items.forEach(item => {
+          const el = newEpisodeItem(kind);
+          const ta = el.querySelector("textarea"); if (ta) ta.value = item.desc || "";
+          const dur = el.querySelector("input.duration"); if (dur) dur.value = item.durationMin || "";
+          const sel = el.querySelector("select.trigger"); if (sel) sel.value = item.trigger || "";
+          const det = el.querySelector("input.detail"); if (det) det.value = item.detail || "";
+          wrap.appendChild(el);
+        });
+      }
+
+      window.saveDraft = function() {
+        try {
+          const form = document.getElementById("patrick-form");
+          if (!form) return;
+          const draft = { _date: localDateStr(), fields: {}, episodes: {} };
+
+          // Capture all named inputs/selects/textareas
+          form.querySelectorAll("input, select, textarea").forEach(el => {
+            if (!el.id) return;
+            if (el.type === "checkbox") draft.fields[el.id] = el.checked;
+            else if (el.type === "hidden") draft.fields[el.id] = el.value;
+            else draft.fields[el.id] = el.value;
+          });
+
+          // Capture dynamic event lists
+          draft.episodes.adverse = serializeEpisodeList("p-adverse-events");
+          draft.episodes.positive = serializeEpisodeList("p-positive-events");
+
+          localStorage.setItem(DRAFT_KEY(), JSON.stringify(draft));
+        } catch(e) { /* localStorage unavailable — silently skip */ }
+      };
+
+      window.clearDraft = function() {
+        try { localStorage.removeItem(DRAFT_KEY()); } catch(e) {}
+      };
+
+      const STALE_DRAFT_PREFIX = "protocol_draft_patrick_";
+
+      function applyDraft(draft) {
+        const form = document.getElementById("patrick-form");
+        if (!form) return;
+        Object.entries(draft.fields || {}).forEach(([id, value]) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          if (el.type === "checkbox") el.checked = !!value;
+          else el.value = value;
+        });
+        form.querySelectorAll('input[type="range"]').forEach(r => window.updateSlider(r));
+        window.updateSlider('p-energy-capacity', 'p-energy-capacity-value');
+        const nmtLevel = parseInt(document.getElementById("p-nmt-level")?.value || "0", 10);
+        const nmtLabel = document.getElementById("p-nmt-label")?.value || "none";
+        window.setNeuromuscularTraining(nmtLevel, nmtLabel);
+        if (draft.episodes?.adverse) restoreEpisodeList("p-adverse-events", draft.episodes.adverse, "adverse");
+        if (draft.episodes?.positive) restoreEpisodeList("p-positive-events", draft.episodes.positive, "positive");
+        const pharm = document.getElementById('p-conf-pharm');
+        const panel = document.getElementById('p-conf-pharm-panel');
+        if (pharm && panel) panel.style.display = pharm.checked ? 'block' : 'none';
+        if (typeof window.toggleSafetyBox === 'function') window.toggleSafetyBox();
+      }
+
+      function findAnyDraft() {
+        try {
+          // First check today's draft
+          const todayRaw = localStorage.getItem(DRAFT_KEY());
+          if (todayRaw) {
+            const d = JSON.parse(todayRaw);
+            if (d && d._date === localDateStr()) return { draft: d, stale: false };
+          }
+          // Scan for any other protocol draft (stale from another day)
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key || !key.startsWith(STALE_DRAFT_PREFIX)) continue;
+            try {
+              const d = JSON.parse(localStorage.getItem(key));
+              if (d && d._date && d._date !== localDateStr()) return { draft: d, stale: true, key };
+            } catch(e) {}
+          }
+        } catch(e) {}
+        return null;
+      }
+
+      function showDraftBanner(draft, stale, staleKey) {
+        const existing = document.getElementById("draft-banner");
+        if (existing) existing.remove();
+
+        const banner = document.createElement("div");
+        banner.id = "draft-banner";
+        banner.style.cssText = `
+          position: fixed; left: 12px; right: 12px; bottom: 72px; z-index: 9998;
+          background: #1c2b1e; border: 1px solid var(--accent-color);
+          border-radius: 14px; padding: 14px 16px; display: flex;
+          flex-direction: column; gap: 10px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+        `;
+
+        const msg = stale
+          ? `You have an unsaved draft from <strong>${draft._date}</strong>. Restore it?`
+          : `Draft from today restored.`;
+
+        banner.innerHTML = `
+          <div style="font-size:0.88rem; color:#d4f5d8; line-height:1.4;">${msg}</div>
+          <div style="display:flex; gap:10px;">
+            <button id="draft-restore-btn" style="flex:1; padding:9px; border-radius:10px; border:0; background:var(--accent-color); color:#000; font-weight:700; cursor:pointer;">
+              Restore
+            </button>
+            <button id="draft-discard-btn" style="flex:1; padding:9px; border-radius:10px; border:1px solid #444; background:transparent; color:#aaa; font-weight:600; cursor:pointer;">
+              Discard
+            </button>
+          </div>
+        `;
+
+        document.body.appendChild(banner);
+
+        document.getElementById("draft-restore-btn").addEventListener("click", () => {
+          try { applyDraft(draft); } catch(e) { console.warn("Draft apply failed:", e); }
+          if (stale && staleKey) { try { localStorage.removeItem(staleKey); } catch(e) {} }
+          banner.remove();
+        });
+
+        document.getElementById("draft-discard-btn").addEventListener("click", () => {
+          if (stale && staleKey) { try { localStorage.removeItem(staleKey); } catch(e) {} }
+          else { window.clearDraft(); }
+          banner.remove();
+        });
+      }
+
+      function loadDraft() {
+        try {
+          const found = findAnyDraft();
+          if (!found) return;
+          const { draft, stale, key } = found;
+          if (!stale) {
+            // Today's draft — restore silently, no prompt needed
+            applyDraft(draft);
+          } else {
+            // Yesterday's (or older) draft — show prompt
+            showDraftBanner(draft, true, key);
+          }
+        } catch(e) { console.warn("Draft restore failed:", e); }
+      }
+
+      // Auto-save on any input change (debounced 800ms)
+      let _draftTimer = null;
+      function scheduleDraftSave() {
+        clearTimeout(_draftTimer);
+        _draftTimer = setTimeout(window.saveDraft, 800);
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        Array.from(document.querySelectorAll('input[type="range"]')).forEach(r => window.updateSlider(r));
+        if (document.getElementById('p-energy-capacity') && document.getElementById('p-energy-capacity-value')) {
+          window.updateSlider('p-energy-capacity', 'p-energy-capacity-value');
+        }
+        if (typeof window.initEvents === 'function') window.initEvents();
+        const pharm = document.getElementById('p-conf-pharm');
+        const panel = document.getElementById('p-conf-pharm-panel');
+        if (pharm && panel) {
+          const sync = () => panel.style.display = pharm.checked ? 'block' : 'none';
+          pharm.addEventListener('change', sync);
+          sync();
+        }
+
+        // Attach auto-save listeners to pilot form
+        const form = document.getElementById("patrick-form");
+        if (form) {
+          form.addEventListener("input", scheduleDraftSave);
+          form.addEventListener("change", scheduleDraftSave);
+        }
+
+        // Restore draft after a short delay to let dynamic elements initialize
+        setTimeout(loadDraft, 120);
+
+        ensureAuthUI();
+      });
+    }
+  </script>
+
+<script>
+// Scroll hint toggle for dev-modal
+(function () {
+  const modal = document.getElementById('dev-modal');
+  if (!modal) return;
+  const modalBody = modal.querySelector('.modal-body');
+  if (!modalBody) return;
+  const update = () => {
+    const canScroll = modalBody.scrollHeight > modalBody.clientHeight + 8;
+    const atTop = modalBody.scrollTop <= 2;
+    if (!canScroll) { modalBody.classList.add('scroll-hint-hidden'); return; }
+    if (atTop) modalBody.classList.remove('scroll-hint-hidden');
+    else modalBody.classList.add('scroll-hint-hidden');
+  };
+  update();
+  modalBody.addEventListener('scroll', update, { passive: true });
+  const obs = new MutationObserver(update);
+  obs.observe(modal, { attributes: true, attributeFilter: ['style', 'class'] });
+})();
+
+// Scroll hint toggle for overview-modal
+(function () {
+  const modal = document.getElementById('overview-modal');
+  if (!modal) return;
+  const modalBody = modal.querySelector('.modal-body');
+  if (!modalBody) return;
+  const update = () => {
+    const canScroll = modalBody.scrollHeight > modalBody.clientHeight + 8;
+    const atTop = modalBody.scrollTop <= 2;
+    if (!canScroll) { modalBody.classList.add('scroll-hint-hidden'); return; }
+    if (atTop) modalBody.classList.remove('scroll-hint-hidden');
+    else modalBody.classList.add('scroll-hint-hidden');
+  };
+  update();
+  modalBody.addEventListener('scroll', update, { passive: true });
+  const obs = new MutationObserver(update);
+  obs.observe(modal, { attributes: true, attributeFilter: ['style', 'class'] });
+})();
+</script>
+
+<script>
+// Lock background scroll when dev-modal is open
+(function () {
+  const modal = document.getElementById('dev-modal');
+  if (!modal) return;
+  const updateLock = () => {
+    const isVisible = window.getComputedStyle(modal).display !== 'none';
+    if (isVisible) document.body.classList.add('modal-open');
+    else document.body.classList.remove('modal-open');
+  };
+  const observer = new MutationObserver(updateLock);
+  observer.observe(modal, { attributes: true, attributeFilter: ['style', 'class'] });
+  updateLock();
+})();
+</script>
+
+</body>
+</html>
