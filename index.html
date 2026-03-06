@@ -809,7 +809,7 @@ body.modal-open {
 /* FIX #4: iOS Safari print — never print from scroll containers */
 @media print {
   body * { visibility: hidden; }
-  body { background: #fff; margin: 0; padding: 0; overflow: visible !important; }
+  body { background: #fff; margin: 0; padding: 0; overflow: visible !important; min-height: 0 !important; display: block !important; }
   #app-container { display: none !important; }
   #report-view, #report-view * { visibility: visible; }
   #report-view {

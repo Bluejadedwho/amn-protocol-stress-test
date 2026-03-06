@@ -320,7 +320,7 @@ function generateDay(dayIndex, totalDays, pattern) {
 
   const noise = () => randFloat(-1.2, 1.2);
   const boolChance = (pct) => Math.random() < pct;
-  const isFlareDay = boolChance(0.08);
+  const isFlareDay = boolChance(0.15);
   const flareMod = isFlareDay ? 2.5 : 0;
   const sym = (base) => clamp(Math.round(base + noise() + flareMod), 0, 10);
   const symGood = (base) => clamp(Math.round(base + noise() - flareMod), 0, 10);
@@ -418,8 +418,17 @@ function generateDay(dayIndex, totalDays, pattern) {
       'Spasm episode lasting several minutes',
       'Balance scare on uneven surface',
       'Severe fatigue required extended rest',
-      'Night pain disrupted sleep significantly'
-    ]), durationMin: rand(10, 120), trigger: pick(['exertion','heat','stress','unknown']), detail: null }] : [],
+      'Night pain disrupted sleep significantly',
+      'Clonus episode during standing',
+      'Legs gave out briefly on stairs',
+      'Burning sensation in both calves',
+      'Tripped — loss of proprioception',
+      'Muscle cramping after mild activity',
+      'Foot drop episode while walking',
+      'Electric-shock feeling in legs',
+      'Bladder urgency — nearly didn\'t make it',
+      'Severe stiffness — couldn\'t get out of chair without help'
+    ]), durationMin: rand(10, 120), trigger: pick(['exertion','heat','stress','unknown','fatigue','prolonged_standing']), detail: null }] : [],
 
     daily_summary: pick([
       null,
@@ -440,6 +449,64 @@ function generateDay(dayIndex, totalDays, pattern) {
       'Reduced sugar intake today',
       null
     ]) : null
+  };
+}
+
+// ============================================================
+// Functional test generator — weekly
+// ============================================================
+function generateFunctionalTest(dayIndex, totalDays, pattern) {
+  const t = dayIndex / totalDays;
+  let walkBase, stsBase;
+  if (pattern === 'realistic') {
+    walkBase = 320 + t * 80;   // improves from ~320m to ~400m
+    stsBase  = 18 - t * 5;     // improves from ~18s to ~13s
+  } else if (pattern === 'volatile') {
+    const wave = Math.sin(dayIndex / 7 * Math.PI) * 20;
+    walkBase = 350 + wave + t * 20;
+    stsBase  = 16 - wave * 0.1 - t * 2;
+  } else {
+    walkBase = 350;
+    stsBase  = 15;
+  }
+
+  return {
+    six_minute_walk: {
+      distance_m: Math.round(walkBase + randFloat(-15, 15)),
+      rest_breaks_count: clamp(rand(0, 3), 0, 5),
+      assistive_device: boolChance(0.3) ? pick(['cane', 'none']) : null,
+      course_length_m: 30,
+      perceived_exertion: clamp(rand(4, 8), 1, 10)
+    },
+    sit_to_stand_5x: {
+      time_seconds: Math.round((stsBase + randFloat(-2, 2)) * 10) / 10,
+      used_arms: pick(['yes', 'no']),
+      chair_height_cm: 46
+    },
+    notes: boolChance(0.3) ? pick([
+      'Felt stronger today',
+      'Legs stiff at start',
+      'Needed rest break earlier than expected',
+      'Better pacing this week',
+      'Stiffness improved mid-test',
+      null
+    ]) : null
+  };
+
+  function boolChance(p) { return Math.random() < p; }
+}
+
+// ============================================================
+// Blood / lab test generator — single initial baseline
+// ============================================================
+function generateInitialLabResults() {
+  return {
+    lab: {
+      test_date: null, // will be set to start date
+      vlcfa_c26: (randFloat(1.0, 2.8)).toFixed(2),
+      liver_alt_ast: `${rand(18, 45)} / ${rand(20, 42)}`,
+      notes: 'Baseline labs — pre-protocol'
+    }
   };
 }
 
@@ -489,6 +556,13 @@ async function runLoader() {
     payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
     payload.clientUpdatedAt = new Date().toISOString();
 
+    // Embed initial blood test on day 0
+    if (i === 0) {
+      const labs = generateInitialLabResults();
+      labs.lab.test_date = dateStr;
+      Object.assign(payload, labs);
+    }
+
     try {
       const docPath = `users/${currentUid}/profiles/${encodeURIComponent(profile)}/synthetic_logs/${encodeURIComponent(dateStr)}`;
       const docRef = db.doc(docPath);
@@ -516,16 +590,47 @@ async function runLoader() {
     setProgress(Math.round(((i + 1) / days) * 100));
   }
 
+  // ── Weekly functional tests ──
   log('─'.repeat(50), 'info');
-  log(`Done! ${written} days written to Firestore, ${errors} errors`, errors ? 'warn' : 'ok');
+  log('Writing weekly functional tests...', 'info');
+  let testsWritten = 0;
+
+  for (let i = 0; i < days; i += 7) {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + i);
+    const dateStr = d.toISOString().split('T')[0];
+
+    const testPayload = generateFunctionalTest(i, days, pattern);
+    testPayload.test_date = dateStr;
+    testPayload._synthetic = true;
+    testPayload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    testPayload.clientCreatedAt = new Date().toISOString();
+
+    try {
+      const testId = `${dateStr}_synthetic`;
+      const testPath = `users/${currentUid}/profiles/${encodeURIComponent(profile)}/synthetic_tests/${encodeURIComponent(testId)}`;
+      await db.doc(testPath).set(testPayload, { merge: true });
+      testsWritten++;
+      log(`Functional test week ${Math.floor(i / 7) + 1} — ${dateStr} ✓`, 'ok');
+    } catch(e) {
+      errors++;
+      log(`Functional test ${dateStr} FAILED: ${e.message}`, 'err');
+    }
+  }
+
+  log(`${testsWritten} weekly functional tests written`, 'ok');
+  log('1 initial blood test embedded in day 1 log', 'ok');
+
+  log('─'.repeat(50), 'info');
+  log(`Done! ${written} days + ${testsWritten} functional tests written, ${errors} errors`, errors ? 'warn' : 'ok');
   log('All entries tagged with _synthetic: true', 'info');
   log('', 'info');
   log('Open the main app to see charts and trends populated.', 'ok');
 
   if (errors === 0) {
-    showResult(true, `${written} days loaded to Firestore — open the app to verify!`);
+    showResult(true, `${written} days + ${testsWritten} functional tests + 1 blood test loaded — open the app to verify!`);
   } else {
-    showResult(false, `${written} days loaded, ${errors} errors — check log above`);
+    showResult(false, `${written} days + ${testsWritten} tests loaded, ${errors} errors — check log above`);
   }
 
   document.getElementById('btn-go').disabled = false;
@@ -587,9 +692,30 @@ async function clearSynthetic() {
       await batch.commit();
     }
 
+    // Also clear synthetic_tests
+    log('Clearing synthetic functional tests...', 'info');
+    const testsRef = db.collection(`users/${currentUid}/profiles/${encodeURIComponent(profile)}/synthetic_tests`);
+    const testsSnap = await testsRef.get();
+    let testsDeleted = 0;
+    if (!testsSnap.empty) {
+      let tBatch = db.batch();
+      let tCount = 0;
+      for (const doc of testsSnap.docs) {
+        tBatch.delete(doc.ref);
+        tCount++;
+        testsDeleted++;
+        if (tCount >= BATCH_SIZE) {
+          await tBatch.commit();
+          tBatch = db.batch();
+          tCount = 0;
+        }
+      }
+      if (tCount > 0) await tBatch.commit();
+    }
+
     log('─'.repeat(50), 'info');
-    log(`Cleared ${total} synthetic entries from Firestore`, 'ok');
-    showResult(true, `Cleared ${total} synthetic entries from Firestore`);
+    log(`Cleared ${total} synthetic logs + ${testsDeleted} functional tests from Firestore`, 'ok');
+    showResult(true, `Cleared ${total} synthetic logs + ${testsDeleted} functional tests`);
   } catch(e) {
     log(`Error clearing synthetic data: ${e.message}`, 'err');
     showResult(false, 'Failed to clear — check log above');
