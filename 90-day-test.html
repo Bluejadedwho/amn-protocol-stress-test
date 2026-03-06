@@ -39,7 +39,6 @@
     margin-bottom: 16px;
   }
   .card h2 { font-size: 0.9rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 12px; }
-  .card h3 { font-size: 0.78rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
 
   label { display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
   input, select {
@@ -74,6 +73,19 @@
   .btn-go { background: var(--green); color: #000; margin-bottom: 10px; }
   .btn-clear { background: var(--red); color: #fff; margin-bottom: 10px; }
   .btn-back { background: var(--border); color: #fff; }
+
+  .auth-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  .auth-card .status { font-size: 0.85rem; margin-bottom: 12px; }
+  .auth-card .status.ok { color: var(--green); }
+  .auth-card .status.waiting { color: var(--yellow); }
+  .auth-card .status.err { color: var(--red); }
 
   .status-box {
     background: #111;
@@ -121,12 +133,12 @@
   .result-banner.fail { background: rgba(255,69,58,0.15); color: var(--red); border: 1px solid var(--red); }
 
   .safety-note {
-    background: rgba(255,214,10,0.1);
-    border: 1px solid var(--yellow);
+    background: rgba(10,132,255,0.1);
+    border: 1px solid var(--blue);
     border-radius: 10px;
     padding: 12px 14px;
     font-size: 0.8rem;
-    color: var(--yellow);
+    color: var(--blue);
     line-height: 1.5;
     margin-bottom: 16px;
   }
@@ -136,13 +148,20 @@
 <div class="page">
   <h1>90-Day Data Loader</h1>
   <p class="subtitle">
-    One-click: populates the main app with 90 days of realistic synthetic protocol data.
+    One-click: populates your app with 90 days of realistic synthetic protocol data.
     Charts, trends, summaries, and PDF export will all work as if you'd been tracking for 3 months.
   </p>
 
   <div class="safety-note">
-    LOCAL ONLY — No Firebase. Data goes to your browser's localStorage only.
-    Will not touch your real Firestore data. Clear it anytime with the button below.
+    WRITES TO FIRESTORE — Synthetic data goes to a <strong>separate collection</strong> (synthetic_logs),
+    completely isolated from your real data in logs/. Use "Clear Synthetic Data" anytime to wipe synthetic entries.
+    Your real protocol logs are never touched.
+  </div>
+
+  <!-- Auth status -->
+  <div class="auth-card" id="auth-section">
+    <h2>Authentication</h2>
+    <div class="status waiting" id="auth-status">Checking login status...</div>
   </div>
 
   <!-- Config -->
@@ -179,8 +198,8 @@
   <!-- Actions -->
   <div class="card">
     <h2>Actions</h2>
-    <button class="btn btn-go" id="btn-go" onclick="runLoader()">Load 90 Days of Data</button>
-    <button class="btn btn-clear" id="btn-clear" onclick="clearSynthetic()">Clear Synthetic Data</button>
+    <button class="btn btn-go" id="btn-go" onclick="runLoader()" disabled>Load 90 Days of Data</button>
+    <button class="btn btn-clear" id="btn-clear" onclick="clearSynthetic()" disabled>Clear Synthetic Data</button>
     <button class="btn btn-back" onclick="window.location.href='index.html'">Back to App</button>
 
     <div class="progress-bar" id="progress"><div class="fill" id="progress-fill"></div></div>
@@ -189,10 +208,48 @@
   </div>
 </div>
 
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
 <script>
 // ============================================================
-// LOCAL-ONLY — No Firebase, no cloud writes
+// Firebase initialization
 // ============================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyDrklblxcbR3TxTOMgsEB4ZgKNE2F1Au98",
+  authDomain: "pioneer-program.firebaseapp.com",
+  projectId: "pioneer-program",
+  storageBucket: "pioneer-program.firebasestorage.app",
+  messagingSenderId: "773361494367",
+  appId: "1:773361494367:web:15aee1471b181413d1eeea"
+};
+
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+let currentUid = null;
+
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+
+auth.onAuthStateChanged(function(user) {
+  const statusEl = document.getElementById('auth-status');
+  if (user) {
+    currentUid = user.uid;
+    statusEl.textContent = 'Signed in as ' + (user.email || user.uid);
+    statusEl.className = 'status ok';
+    document.getElementById('btn-go').disabled = false;
+    document.getElementById('btn-clear').disabled = false;
+  } else {
+    currentUid = null;
+    statusEl.innerHTML = 'Not signed in. <a href="index.html" style="color:var(--blue)">Sign in on the main app first</a>, then come back here.';
+    statusEl.className = 'status err';
+    document.getElementById('btn-go').disabled = true;
+    document.getElementById('btn-clear').disabled = true;
+  }
+});
 
 // ============================================================
 // Logging helpers
@@ -233,32 +290,27 @@ function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
 const BASELINE_RATINGS = ['much_worse','worse','slightly_worse','baseline','slightly_better','better','much_better'];
-const BASELINE_MAP = { much_worse:0, worse:1, slightly_worse:2, baseline:3, slightly_better:4, better:5, much_better:6 };
 const PAIN_DRIVERS = ['piriformis_glute','low_back','hip','thigh','calf','foot','other'];
 const NMT_OPTIONS = [{level:0,label:'none'},{level:1,label:'light'},{level:2,label:'full'}];
 
 function generateDay(dayIndex, totalDays, pattern) {
-  // Progress ratio 0→1
   const t = dayIndex / totalDays;
 
-  // Base curves per pattern
   let symptomBase, energyBase, painBase, sleepBase, ratingBias;
   if (pattern === 'realistic') {
-    // Gradual improvement: symptoms decrease, energy increases
-    symptomBase = 6.5 - t * 2.5;   // 6.5 → 4.0
-    energyBase  = 4.0 + t * 3.0;   // 4.0 → 7.0
-    painBase    = 5.5 - t * 2.0;   // 5.5 → 3.5
-    sleepBase   = 4.5 + t * 2.5;   // 4.5 → 7.0
-    ratingBias  = 3 + t * 2;       // baseline → better
+    symptomBase = 6.5 - t * 2.5;
+    energyBase  = 4.0 + t * 3.0;
+    painBase    = 5.5 - t * 2.0;
+    sleepBase   = 4.5 + t * 2.5;
+    ratingBias  = 3 + t * 2;
   } else if (pattern === 'volatile') {
-    // Fluctuating with slight overall improvement
     const wave = Math.sin(dayIndex / 7 * Math.PI) * 1.5;
     symptomBase = 5.5 + wave - t * 1.0;
     energyBase  = 5.0 - wave + t * 0.5;
     painBase    = 5.0 + wave * 0.8 - t * 0.5;
     sleepBase   = 5.0 - wave * 0.6 + t * 0.5;
     ratingBias  = 3 + wave * 0.5;
-  } else { // flat
+  } else {
     symptomBase = 5.0;
     energyBase  = 5.5;
     painBase    = 4.0;
@@ -266,33 +318,22 @@ function generateDay(dayIndex, totalDays, pattern) {
     ratingBias  = 3;
   }
 
-  // Add daily noise
   const noise = () => randFloat(-1.2, 1.2);
   const boolChance = (pct) => Math.random() < pct;
-
-  // Occasional bad days (simulate flare-ups)
   const isFlareDay = boolChance(0.08);
   const flareMod = isFlareDay ? 2.5 : 0;
-
   const sym = (base) => clamp(Math.round(base + noise() + flareMod), 0, 10);
   const symGood = (base) => clamp(Math.round(base + noise() - flareMod), 0, 10);
-
-  // Pick baseline rating
   const rIdx = clamp(Math.round(ratingBias + noise()), 0, 6);
   const baselineRating = BASELINE_RATINGS[rIdx];
-
-  // Adherence improves over time (more consistent later)
   const adherenceRate = Math.min(0.95, 0.75 + t * 0.2);
-
-  // NMT increases over time
   const nmtIdx = t < 0.3 ? (boolChance(0.7) ? 0 : 1) : (t < 0.6 ? (boolChance(0.5) ? 1 : 2) : (boolChance(0.7) ? 2 : 1));
   const nmt = NMT_OPTIONS[nmtIdx];
-
-  // Fast markers decrease over time
   const fastRate = Math.max(0.02, 0.15 - t * 0.1);
 
-  const payload = {
-    date: null, // set by caller
+  return {
+    date: null,
+    _synthetic: true,
 
     baseline_rating: baselineRating,
     baseline_confidence: pick(['low','medium','medium','high']),
@@ -334,10 +375,7 @@ function generateDay(dayIndex, totalDays, pattern) {
       vitamin_e_taken:      boolChance(adherenceRate)
     },
 
-    external_neuromuscular_training: {
-      level: nmt.level,
-      label: nmt.label
-    },
+    external_neuromuscular_training: { level: nmt.level, label: nmt.label },
 
     fast_markers: {
       near_fall_or_balance_scare:  boolChance(fastRate),
@@ -403,17 +441,16 @@ function generateDay(dayIndex, totalDays, pattern) {
       null
     ]) : null
   };
-
-  return payload;
 }
 
 // ============================================================
-// Main loader
+// Main loader — writes to Firestore
 // ============================================================
 let running = false;
 
 async function runLoader() {
   if (running) return;
+  if (!currentUid) { alert('Please sign in first on the main app, then come back.'); return; }
   running = true;
 
   const days = parseInt(document.getElementById('cfg-days').value) || 90;
@@ -431,11 +468,16 @@ async function runLoader() {
   const startDate = new Date(startStr + 'T00:00:00');
 
   log(`Generating ${days} days of "${pattern}" data starting ${startStr}`, 'info');
-  log(`Profile: ${profile} | Storage: localStorage only`, 'info');
+  log(`Profile: ${profile} | Writing to Firestore (tagged _synthetic: true)`, 'info');
+  log('Your real data will NOT be affected.', 'info');
   log('─'.repeat(50), 'info');
 
   let written = 0, errors = 0;
-  const generatedDates = [];
+
+  // Write in batches of 10 (Firestore batch limit is 500, but we pace for stability)
+  const BATCH_SIZE = 10;
+  let batch = db.batch();
+  let batchCount = 0;
 
   for (let i = 0; i < days; i++) {
     const d = new Date(startDate);
@@ -444,22 +486,21 @@ async function runLoader() {
 
     const payload = generateDay(i, days, pattern);
     payload.date = dateStr;
+    payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+    payload.clientUpdatedAt = new Date().toISOString();
 
     try {
-      // Always write to localStorage (as the app's draft format)
-      const lsKey = `protocol_draft_${profile}_${dateStr}`;
-      localStorage.setItem(lsKey, JSON.stringify({
-        _date: dateStr,
-        _synthetic: true,
-        fields: payload,
-        episodes: {
-          positive: payload.positive_events || [],
-          adverse: payload.adverse_events || []
-        }
-      }));
+      const docPath = `users/${currentUid}/profiles/${encodeURIComponent(profile)}/synthetic_logs/${encodeURIComponent(dateStr)}`;
+      const docRef = db.doc(docPath);
+      batch.set(docRef, payload, { merge: true });
+      batchCount++;
 
-      written++;
-      generatedDates.push(dateStr);
+      if (batchCount >= BATCH_SIZE || i === days - 1) {
+        await batch.commit();
+        written += batchCount;
+        batch = db.batch();
+        batchCount = 0;
+      }
 
       if (i % 10 === 0 || i === days - 1) {
         log(`Day ${i + 1}/${days} — ${dateStr} ✓`, 'ok');
@@ -467,19 +508,22 @@ async function runLoader() {
     } catch(e) {
       errors++;
       log(`Day ${i + 1} (${dateStr}) FAILED: ${e.message}`, 'err');
+      // Reset batch on error
+      batch = db.batch();
+      batchCount = 0;
     }
 
     setProgress(Math.round(((i + 1) / days) * 100));
   }
 
   log('─'.repeat(50), 'info');
-  log(`Done! ${written} days written, ${errors} errors`, errors ? 'warn' : 'ok');
-  log(`Data written to localStorage: protocol_draft_${profile}_*`, 'info');
+  log(`Done! ${written} days written to Firestore, ${errors} errors`, errors ? 'warn' : 'ok');
+  log('All entries tagged with _synthetic: true', 'info');
   log('', 'info');
   log('Open the main app to see charts and trends populated.', 'ok');
 
   if (errors === 0) {
-    showResult(true, `${written} days loaded successfully — open the app to verify!`);
+    showResult(true, `${written} days loaded to Firestore — open the app to verify!`);
   } else {
     showResult(false, `${written} days loaded, ${errors} errors — check log above`);
   }
@@ -490,10 +534,11 @@ async function runLoader() {
 }
 
 // ============================================================
-// Clear synthetic data
+// Clear synthetic data from Firestore
 // ============================================================
 async function clearSynthetic() {
-  if (!confirm('This will remove all synthetic test data. Real data (without _synthetic flag) is preserved. Continue?')) return;
+  if (!currentUid) { alert('Please sign in first.'); return; }
+  if (!confirm('This will remove all synthetic test data from Firestore.\nYour real data in logs/ is completely separate and untouched.\n\nContinue?')) return;
 
   document.getElementById('btn-go').disabled = true;
   document.getElementById('btn-clear').disabled = true;
@@ -501,26 +546,55 @@ async function clearSynthetic() {
   document.getElementById('result').style.display = 'none';
 
   const profile = document.getElementById('cfg-profile').value;
-  let cleared = 0;
+  const logsRef = db.collection(`users/${currentUid}/profiles/${encodeURIComponent(profile)}/synthetic_logs`);
 
-  // Clear localStorage
-  const prefix = `protocol_draft_${profile}_`;
-  const keysToRemove = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key && key.startsWith(prefix)) {
-      try {
-        const data = JSON.parse(localStorage.getItem(key));
-        if (data && data._synthetic) {
-          keysToRemove.push(key);
-        }
-      } catch(e) { /* skip non-JSON */ }
+  log('Scanning Firestore for synthetic entries...', 'info');
+
+  try {
+    // Get all docs in synthetic_logs (entire collection is synthetic)
+    const snapshot = await logsRef.get();
+
+    if (snapshot.empty) {
+      log('No synthetic entries found in Firestore.', 'info');
+      showResult(true, 'No synthetic data to clear');
+      document.getElementById('btn-go').disabled = false;
+      document.getElementById('btn-clear').disabled = false;
+      return;
     }
-  }
-  keysToRemove.forEach(k => { localStorage.removeItem(k); cleared++; });
-  log(`Cleared ${keysToRemove.length} synthetic entries from localStorage`, 'ok');
 
-  showResult(true, `Cleared ${cleared} synthetic entries`);
+    log(`Found ${snapshot.size} synthetic entries. Deleting...`, 'info');
+
+    // Delete in batches
+    const BATCH_SIZE = 10;
+    let batch = db.batch();
+    let count = 0;
+    let total = 0;
+
+    for (const doc of snapshot.docs) {
+      batch.delete(doc.ref);
+      count++;
+      total++;
+
+      if (count >= BATCH_SIZE) {
+        await batch.commit();
+        log(`Deleted ${total}/${snapshot.size}...`, 'ok');
+        batch = db.batch();
+        count = 0;
+      }
+    }
+
+    if (count > 0) {
+      await batch.commit();
+    }
+
+    log('─'.repeat(50), 'info');
+    log(`Cleared ${total} synthetic entries from Firestore`, 'ok');
+    showResult(true, `Cleared ${total} synthetic entries from Firestore`);
+  } catch(e) {
+    log(`Error clearing synthetic data: ${e.message}`, 'err');
+    showResult(false, 'Failed to clear — check log above');
+  }
+
   document.getElementById('btn-go').disabled = false;
   document.getElementById('btn-clear').disabled = false;
 }

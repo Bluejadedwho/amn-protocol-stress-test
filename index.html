@@ -5,7 +5,7 @@
 <script>window.__AUTH_MODULE_LOADED__ = false;</script>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
-<title>The Protocol</title>
+<title>The Protocol — TEST MODE</title>
 <meta content="yes" name="apple-mobile-web-app-capable"/>
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
 <meta content="#000000" name="theme-color"/>
@@ -1123,7 +1123,7 @@ body.modal-open {
         try {
           if (window.CURRENT_UID && typeof firebase !== 'undefined' && firebase.firestore) {
             firebase.firestore().collection('users').doc(window.CURRENT_UID)
-              .collection('settings').doc('protocol')
+              .collection('settings').doc('protocol_test')
               .set({ startDate: dateStr, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
           }
         } catch(e) { console.warn('Phase tracker Firestore save failed:', e); }
@@ -1133,7 +1133,7 @@ body.modal-open {
         try {
           if (window.CURRENT_UID && typeof firebase !== 'undefined' && firebase.firestore) {
             firebase.firestore().collection('users').doc(window.CURRENT_UID)
-              .collection('settings').doc('protocol')
+              .collection('settings').doc('protocol_test')
               .update({ startDate: firebase.firestore.FieldValue.delete(), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
           }
         } catch(e) { console.warn('Phase tracker Firestore remove failed:', e); }
@@ -1144,7 +1144,7 @@ body.modal-open {
         try {
           if (!window.CURRENT_UID || typeof firebase === 'undefined') return;
           const doc = await firebase.firestore().collection('users').doc(window.CURRENT_UID)
-            .collection('settings').doc('protocol').get();
+            .collection('settings').doc('protocol_test').get();
           if (doc.exists && doc.data()?.startDate) {
             const remoteDate = doc.data().startDate;
             const localDate = getStartDate();
@@ -1308,6 +1308,10 @@ body.modal-open {
 </style>
 </head>
 <body>
+<div id="test-mode-banner" style="background:#FF453A;color:#fff;text-align:center;padding:10px 16px;font-weight:800;font-size:0.85rem;letter-spacing:0.5px;font-family:'Inter',sans-serif;position:sticky;top:0;z-index:99999;display:flex;align-items:center;justify-content:center;gap:12px;">
+  <span>⚠ TEST MODE — All data stored separately from your real profile ⚠</span>
+  <a href="90-day-test.html" style="background:#fff;color:#FF453A;padding:6px 14px;border-radius:8px;font-weight:800;font-size:0.78rem;text-decoration:none;text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap;">Load 90-Day Data</a>
+</div>
 <div id="report-view"></div>
 
 <!-- FIX #4: Auth overlay now uses a proper HTML form for iOS autofill reliability -->
@@ -2492,7 +2496,7 @@ Conceptual Foundation and Mechanistic Framework
           const uid = window.CURRENT_UID;
           if (!uid) throw new Error("Not authenticated");
           const dateStr = payload.date || localDateStr();
-          const docRef = db.doc(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs/${encodeURIComponent(dateStr)}`);
+          const docRef = db.doc(`users/${uid}/profiles/${encodeURIComponent(profileId)}/synthetic_logs/${encodeURIComponent(dateStr)}`);
           const finalPayload = { ...payload, date: dateStr, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), clientUpdatedAt: new Date().toISOString() };
           await docRef.set(finalPayload, { merge: true });
         } catch (err) {
@@ -2509,14 +2513,14 @@ Conceptual Foundation and Mechanistic Framework
       window.saveUserLog = saveUserLog;
 
       async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
-        const q = db.collection(userProfilePath(patientId, "logs"))
+        const q = db.collection(userProfilePath(patientId, "synthetic_logs"))
           .where("date", ">=", startDate).where("date", "<=", endDate).orderBy("date", dir);
         const snapshot = await q.get();
         return snapshot.docs.map((d) => d.data());
       }
 
       async function fetchPatientLogs(patientId, days = 30) {
-        const q = db.collection(userProfilePath(patientId, "logs")).orderBy("date", "desc").limit(days);
+        const q = db.collection(userProfilePath(patientId, "synthetic_logs")).orderBy("date", "desc").limit(days);
         const snapshot = await q.get();
         return snapshot.docs.map((d) => d.data());
       }
@@ -2691,7 +2695,7 @@ Conceptual Foundation and Mechanistic Framework
         };
 
         try {
-          const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
+          const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/synthetic_logs`);
           const snapshot = await logsRef.orderBy("date", "desc").get();
           if (snapshot.empty) { alert("No data found to export."); return; }
           let logs = [];
@@ -2699,7 +2703,7 @@ Conceptual Foundation and Mechanistic Framework
 
           // FIX #2: Fetch functional tests collection and merge into logs by date
           try {
-            const testsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/tests`);
+            const testsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/synthetic_tests`);
             const testsSnap = await testsRef.get();
             const testsByDate = {};
             testsSnap.forEach(doc => {
@@ -3145,7 +3149,7 @@ Conceptual Foundation and Mechanistic Framework
           return String(val) + suffix;
         };
         try {
-          const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
+          const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/synthetic_logs`);
           const snapshot = await logsRef.orderBy("date", opts?.dir || "desc").get();
           let logs = snapshot.docs.map(d => d.data());
           const startDate = opts?.startDate || null;
@@ -3308,7 +3312,7 @@ Conceptual Foundation and Mechanistic Framework
           if (hasFunctionalTestData()) {
             const payload = collectFunctionalTestPayload();
             const id = `${payload.test_date}_${Date.now()}`;
-            await db.doc(userProfilePath("patrick", "tests", id)).set(
+            await db.doc(userProfilePath("patrick", "synthetic_tests", id)).set(
               { ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp(), clientCreatedAt: new Date().toISOString() },
               { merge: true }
             );
@@ -3350,7 +3354,7 @@ Conceptual Foundation and Mechanistic Framework
         try {
           const payload = collectFunctionalTestPayload();
           const id = `${payload.test_date}_${Date.now()}`;
-          const ref = db.doc(userProfilePath("patrick", "tests", id));
+          const ref = db.doc(userProfilePath("patrick", "synthetic_tests", id));
           await ref.set({ ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp(), clientCreatedAt: new Date().toISOString() }, { merge: true });
           btns.forEach(b => { try { b.textContent = "SAVED ✓"; } catch(e){} });
           setTimeout(() => btns.forEach(b => { try { b.disabled = false; b.textContent = "SAVE FUNCTIONAL TEST"; } catch(e){} }), 1400);
