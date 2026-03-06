@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>AMN Protocol — 90-Day Data Loader</title>
+<title>AMN Protocol — 120-Day Data Loader</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet"/>
 <style>
   :root {
@@ -146,10 +146,10 @@
 </head>
 <body>
 <div class="page">
-  <h1>90-Day Data Loader</h1>
+  <h1>120-Day Data Loader</h1>
   <p class="subtitle">
-    One-click: populates your app with 90 days of realistic synthetic protocol data.
-    Charts, trends, summaries, and PDF export will all work as if you'd been tracking for 3 months.
+    One-click: populates your app with 120 days of realistic synthetic protocol data.
+    Charts, trends, summaries, and PDF export will all work as if you'd been tracking for 4 months.
   </p>
 
   <div class="safety-note">
@@ -170,7 +170,7 @@
     <div class="row">
       <div>
         <label>Days to generate</label>
-        <input id="cfg-days" type="number" value="90" min="7" max="365"/>
+        <input id="cfg-days" type="number" value="120" min="7" max="365"/>
       </div>
       <div>
         <label>Start date</label>
@@ -198,7 +198,7 @@
   <!-- Actions -->
   <div class="card">
     <h2>Actions</h2>
-    <button class="btn btn-go" id="btn-go" onclick="runLoader()" disabled>Load 90 Days of Data</button>
+    <button class="btn btn-go" id="btn-go" onclick="runLoader()" disabled>Load 120 Days of Data</button>
     <button class="btn btn-clear" id="btn-clear" onclick="clearSynthetic()" disabled>Clear Synthetic Data</button>
     <button class="btn btn-back" onclick="window.location.href='index.html'">Back to App</button>
 
@@ -273,11 +273,11 @@ function showResult(ok, msg) {
 }
 
 // ============================================================
-// Set default start date to 90 days ago
+// Set default start date to 120 days ago
 // ============================================================
 (function setDefaults() {
   const d = new Date();
-  d.setDate(d.getDate() - 89);
+  d.setDate(d.getDate() - 119);
   document.getElementById('cfg-start').value = d.toISOString().split('T')[0];
 })();
 
@@ -520,7 +520,7 @@ async function runLoader() {
   if (!currentUid) { alert('Please sign in first on the main app, then come back.'); return; }
   running = true;
 
-  const days = parseInt(document.getElementById('cfg-days').value) || 90;
+  const days = parseInt(document.getElementById('cfg-days').value) || 120;
   const startStr = document.getElementById('cfg-start').value;
   const profile = document.getElementById('cfg-profile').value;
   const pattern = document.getElementById('cfg-pattern').value;
