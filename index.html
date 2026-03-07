@@ -837,6 +837,27 @@ body.modal-open {
 }
 .splash-credits-site{ opacity: 0.9; }
 
+/* Badge / tap-to-select buttons for functional tests */
+.ft-badge {
+  background: var(--surface);
+  color: #888;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.875rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  cursor: pointer;
+  font-weight: 400;
+  transition: all 0.15s;
+  text-align: center;
+  -webkit-appearance: none;
+}
+.ft-badge.active {
+  background: #0a84ff;
+  color: #fff;
+  font-weight: 600;
+}
+
 </style>
 <script>
     function byId(id){ return document.getElementById(id); }
@@ -1896,13 +1917,26 @@ Conceptual Foundation and Mechanistic Framework
 <label>Test Date</label>
 <input id="ft-date" type="date"/>
 </div>
+
+<!-- Time of Day — shared across both tests -->
+<div class="input-group" style="margin-top:15px;">
+<label>Time of day</label>
+<div id="ft-time-of-day" class="badge-group" style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:8px; margin-top:6px;"></div>
+<div style="color:#666; font-size:0.75rem; margin-top:4px;">Morning vs. afternoon can affect performance significantly</div>
+</div>
+
+<!-- 6-Minute Walk Test -->
 <div class="card" style="margin-top: 15px;">
 <h3>6-Minute Walk Test</h3>
-<div class="input-row">
-<div class="input-group"><label>Distance (meters)</label><input id="ft-6m-distance" placeholder="e.g. 220" type="number"/></div>
-<div class="input-group"><label>Rest breaks (count)</label><input id="ft-6m-restbreaks" placeholder="e.g. 1" type="number"/></div>
+
+<div style="display:flex; align-items:center; gap:10px; margin:8px 0 14px;">
+<div style="flex:1; height:1px; background:#333;"></div>
+<span style="color:#555; font-size:0.7rem; white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px;">Course setup — measure once, reuse</span>
+<div style="flex:1; height:1px; background:#333;"></div>
 </div>
-<div class="input-row" style="margin-top:12px;">
+
+<div class="input-row">
+<div class="input-group"><label>Course length (m)</label><input id="ft-6m-course" placeholder="e.g. 28" type="number" oninput="window._ftRecalcDistance()"/><div style="color:#666; font-size:0.7rem; margin-top:3px;">Your hallway length</div></div>
 <div class="input-group">
 <label>Assistive device</label>
 <select id="ft-6m-device">
@@ -1910,38 +1944,86 @@ Conceptual Foundation and Mechanistic Framework
 <option value="none">None</option>
 <option value="cane">Cane</option>
 <option value="walker">Walker</option>
+<option value="rollator">Rollator</option>
 <option value="crutches">Crutches</option>
 <option value="other">Other</option>
 </select>
 </div>
-<div class="input-group"><label>Course length (meters)</label><input id="ft-6m-course" placeholder="e.g. 20" type="number"/></div>
 </div>
-<div class="input-group" style="margin-top:12px;">
-<label>Perceived exertion (0-10)</label>
+
+<div style="display:flex; align-items:center; gap:10px; margin:14px 0;">
+<div style="flex:1; height:1px; background:#333;"></div>
+<span style="color:#555; font-size:0.7rem; white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px;">This session</span>
+<div style="flex:1; height:1px; background:#333;"></div>
+</div>
+
+<div class="input-row">
+<div class="input-group"><label>Laps completed</label><input id="ft-6m-laps" placeholder="e.g. 3.5" step="0.5" type="number" oninput="window._ftRecalcDistance()"/><div style="color:#666; font-size:0.7rem; margin-top:3px;">Counts ½ laps too, e.g. 3.5</div></div>
+<div class="input-group"><label>Rest breaks</label><input id="ft-6m-restbreaks" placeholder="e.g. 1" type="number"/></div>
+</div>
+<div class="input-row" style="margin-top:12px;">
+<div class="input-group">
+<label>Total distance</label>
+<div id="ft-6m-calc-distance" style="background:var(--surface); border-radius:10px; padding:12px 14px; font-size:1rem; color:#444; font-weight:400; min-height:20px; user-select:none;">— m</div>
+<div style="color:#666; font-size:0.7rem; margin-top:3px;">Auto-calculated from laps × course length</div>
+</div>
+<div class="input-group"></div>
+</div>
+<div class="input-row" style="margin-top:12px;">
+<div class="input-group">
+<label>Perceived exertion (0–10)</label>
 <input id="ft-6m-rpe" max="10" min="0" placeholder="0 to 10" type="number"/>
 </div>
+<div class="input-group">
+<label>Post-test fatigue (0–10)</label>
+<input id="ft-6m-fatigue" max="10" min="0" placeholder="0 to 10" type="number"/>
+<div style="color:#666; font-size:0.7rem; margin-top:3px;">Rate 5 min after</div>
 </div>
+</div>
+</div>
+
+<!-- Sit-to-Stand Test -->
 <div class="card">
-<h3>5x Sit-to-Stand</h3>
+<h3>Sit-to-Stand Test</h3>
+
+<div style="display:flex; align-items:center; gap:10px; margin:8px 0 14px;">
+<div style="flex:1; height:1px; background:#333;"></div>
+<span style="color:#555; font-size:0.7rem; white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px;">Setup</span>
+<div style="flex:1; height:1px; background:#333;"></div>
+</div>
+
+<div class="input-row">
+<div class="input-group">
+<label>Target reps</label>
+<div id="ft-sts-reps" class="badge-group" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:6px;"></div>
+</div>
+<div class="input-group"><label>Chair height (cm)</label><input id="ft-5x-chair" placeholder="e.g. 45" type="number"/><div style="color:#666; font-size:0.7rem; margin-top:3px;">Optional</div></div>
+</div>
+
+<div class="input-group" style="margin-top:12px;">
+<label>Arm support used</label>
+<div id="ft-sts-arm-support" class="badge-group" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:6px;"></div>
+</div>
+
+<div style="display:flex; align-items:center; gap:10px; margin:14px 0;">
+<div style="flex:1; height:1px; background:#333;"></div>
+<span style="color:#555; font-size:0.7rem; white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px;">Result</span>
+<div style="flex:1; height:1px; background:#333;"></div>
+</div>
+
 <div class="input-row">
 <div class="input-group"><label>Time (seconds)</label><input id="ft-5x-time" placeholder="e.g. 18.4" step="0.1" type="number"/></div>
-<div class="input-group">
-<label>Used arms?</label>
-<select id="ft-5x-arms">
-<option value="">Select</option>
-<option value="no">No</option>
-<option value="yes">Yes</option>
-</select>
-</div>
+<div class="input-group"><label>Reps completed</label><input id="ft-sts-completed" placeholder="5" type="number"/><div style="color:#666; font-size:0.7rem; margin-top:3px;">If you stopped early</div></div>
 </div>
 <div class="input-group" style="margin-top:12px;">
-<label>Chair height (cm, optional)</label>
-<input id="ft-5x-chair" placeholder="e.g. 45" type="number"/>
+<label>Perceived exertion (0–10)</label>
+<input id="ft-sts-exertion" max="10" min="0" placeholder="0 to 10" type="number"/>
 </div>
 </div>
+
 <div class="input-group" style="margin-top:12px;">
 <label>Notes</label>
-<textarea id="ft-notes" placeholder="Anything notable about setup, pain, fatigue, or conditions" rows="2"></textarea>
+<textarea id="ft-notes" placeholder="Spasticity level, sleep quality, pain, anything that affected the test..." rows="2"></textarea>
 </div>
 <div class="history-list" id="ft-history-list"></div>
 </div>
@@ -2920,18 +3002,28 @@ Conceptual Foundation and Mechanistic Framework
               </tr>
               <tr style="background:#fff;">
                 <td style="padding:5px 8px;">6MW Distance (m)</td>
-                <td style="padding:5px 8px; text-align:center;">${vr(firstTest.six_minute_walk?.distance_m)}</td>
-                ${lastTest ? `<td style="padding:5px 8px; text-align:center;">${vr(lastTest.six_minute_walk?.distance_m)}</td><td style="padding:5px 8px; text-align:center; font-weight:700;">${_testDelta(firstTest.six_minute_walk?.distance_m, lastTest.six_minute_walk?.distance_m)}</td>` : ""}
+                <td style="padding:5px 8px; text-align:center;">${vr(firstTest.six_minute_walk?.calculated_distance_m || firstTest.six_minute_walk?.distance_m)}</td>
+                ${lastTest ? `<td style="padding:5px 8px; text-align:center;">${vr(lastTest.six_minute_walk?.calculated_distance_m || lastTest.six_minute_walk?.distance_m)}</td><td style="padding:5px 8px; text-align:center; font-weight:700;">${_testDelta(firstTest.six_minute_walk?.calculated_distance_m || firstTest.six_minute_walk?.distance_m, lastTest.six_minute_walk?.calculated_distance_m || lastTest.six_minute_walk?.distance_m)}</td>` : ""}
               </tr>
               <tr style="background:#f5f5f8;">
+                <td style="padding:5px 8px;">6MW Laps</td>
+                <td style="padding:5px 8px; text-align:center;">${vr(firstTest.six_minute_walk?.laps)}</td>
+                ${lastTest ? `<td style="padding:5px 8px; text-align:center;">${vr(lastTest.six_minute_walk?.laps)}</td><td style="padding:5px 8px; text-align:center; font-weight:700;">${_testDelta(firstTest.six_minute_walk?.laps, lastTest.six_minute_walk?.laps)}</td>` : ""}
+              </tr>
+              <tr style="background:#fff;">
                 <td style="padding:5px 8px;">6MW Rest breaks</td>
                 <td style="padding:5px 8px; text-align:center;">${vr(firstTest.six_minute_walk?.rest_breaks_count)}</td>
                 ${lastTest ? `<td style="padding:5px 8px; text-align:center;">${vr(lastTest.six_minute_walk?.rest_breaks_count)}</td><td style="padding:5px 8px; text-align:center; font-weight:700;">${_testDelta(firstTest.six_minute_walk?.rest_breaks_count, lastTest.six_minute_walk?.rest_breaks_count)}</td>` : ""}
               </tr>
-              <tr style="background:#fff;">
-                <td style="padding:5px 8px;">5x STS Time (s)</td>
+              <tr style="background:#f5f5f8;">
+                <td style="padding:5px 8px;">STS Time (s)</td>
                 <td style="padding:5px 8px; text-align:center;">${vr(firstTest.sit_to_stand_5x?.time_seconds)}</td>
                 ${lastTest ? `<td style="padding:5px 8px; text-align:center;">${vr(lastTest.sit_to_stand_5x?.time_seconds)}</td><td style="padding:5px 8px; text-align:center; font-weight:700;">${_testDelta(firstTest.sit_to_stand_5x?.time_seconds, lastTest.sit_to_stand_5x?.time_seconds)}</td>` : ""}
+              </tr>
+              <tr style="background:#fff;">
+                <td style="padding:5px 8px;">STS Reps completed</td>
+                <td style="padding:5px 8px; text-align:center;">${vr(firstTest.sit_to_stand_5x?.reps_completed)}</td>
+                ${lastTest ? `<td style="padding:5px 8px; text-align:center;">${vr(lastTest.sit_to_stand_5x?.reps_completed)}</td><td style="padding:5px 8px; text-align:center; font-weight:700;">${_testDelta(firstTest.sit_to_stand_5x?.reps_completed, lastTest.sit_to_stand_5x?.reps_completed)}</td>` : ""}
               </tr>
             </table>` : `<div style="font-size:12px; color:#999;">No functional tests recorded in this period.</div>`}
 
@@ -3036,9 +3128,10 @@ Conceptual Foundation and Mechanistic Framework
               ftArr.forEach(ft => {
                 const sw = ft.six_minute_walk || {};
                 const sts = ft.sit_to_stand_5x || {};
-                html += `<p><strong>Test date:</strong> ${vr(ft.test_date)}</p>`;
-                html += `<p><em>6-Min Walk:</em> Distance: ${vr(sw.distance_m,"m")}, Breaks: ${vr(sw.rest_breaks_count)}, Device: ${vr(sw.assistive_device)}, RPE: ${vr(sw.perceived_exertion)}</p>`;
-                html += `<p><em>5x Sit-Stand:</em> Time: ${vr(sts.time_seconds,"s")}, Used arms: ${vr(sts.used_arms)}, Chair: ${vr(sts.chair_height_cm,"cm")}</p>`;
+                const armLabel = sts.arm_support ? ({ none: "None", thighs: "Hands on thighs", walker: "Walker/rails", full: "Full assist" }[sts.arm_support] || sts.arm_support) : (sts.used_arms === "yes" ? "Yes (legacy)" : sts.used_arms === "no" ? "None" : null);
+                html += `<p><strong>Test date:</strong> ${vr(ft.test_date)}${ft.time_of_day ? " (" + ft.time_of_day + ")" : ""}</p>`;
+                html += `<p><em>6-Min Walk:</em> Laps: ${vr(sw.laps)}, Distance: ${vr(sw.calculated_distance_m || sw.distance_m,"m")}, Breaks: ${vr(sw.rest_breaks_count)}, Device: ${vr(sw.assistive_device)}, RPE: ${vr(sw.perceived_exertion)}, Fatigue: ${vr(sw.post_test_fatigue)}</p>`;
+                html += `<p><em>Sit-Stand:</em> Time: ${vr(sts.time_seconds,"s")}, Reps: ${vr(sts.target_reps)} (done: ${vr(sts.reps_completed)}), Arm support: ${vr(armLabel)}, Chair: ${vr(sts.chair_height_cm,"cm")}, RPE: ${vr(sts.perceived_exertion)}</p>`;
                 if (ft.notes) html += `<p>Notes: ${vr(ft.notes)}</p>`;
               });
             } else {
@@ -3294,8 +3387,112 @@ Conceptual Foundation and Mechanistic Framework
       }
 
       function hasFunctionalTestData() {
-        return !!(val("ft-6m-distance") || val("ft-5x-time") || val("ft-notes"));
+        return !!(val("ft-6m-laps") || val("ft-5x-time") || val("ft-notes"));
       }
+
+      // ── Functional test badge / tap-to-select system ──
+      window.__ftState = { timeOfDay: null, stsReps: "5", armSupport: null };
+
+      function _ftRenderBadges(containerId, options, stateKey, onChange) {
+        const c = el(containerId);
+        if (!c) return;
+        c.innerHTML = "";
+        options.forEach(function(opt) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "ft-badge" + (window.__ftState[stateKey] === opt.value ? " active" : "");
+          btn.textContent = opt.label;
+          btn.addEventListener("click", function() {
+            window.__ftState[stateKey] = opt.value;
+            _ftRenderBadges(containerId, options, stateKey, onChange);
+            if (onChange) onChange(opt.value);
+          });
+          c.appendChild(btn);
+        });
+      }
+
+      window._ftRecalcDistance = function() {
+        const course = parseFloat(val("ft-6m-course") || "0");
+        const laps = parseFloat(val("ft-6m-laps") || "0");
+        const distEl = el("ft-6m-calc-distance");
+        if (!distEl) return;
+        if (course > 0 && laps > 0) {
+          const dist = (course * laps).toFixed(1);
+          distEl.textContent = dist + " m";
+          distEl.style.color = "#0a84ff";
+          distEl.style.fontWeight = "600";
+        } else {
+          distEl.textContent = "— m";
+          distEl.style.color = "#444";
+          distEl.style.fontWeight = "400";
+        }
+      };
+
+      function _ftUpdateStsPlaceholder(repsVal) {
+        const inp = el("ft-sts-completed");
+        if (inp) inp.placeholder = repsVal === "Max" ? "Count" : repsVal;
+      }
+
+      function _ftInitBadges() {
+        _ftRenderBadges("ft-time-of-day", [
+          { value: "Morning", label: "Morning" },
+          { value: "Midday", label: "Midday" },
+          { value: "Afternoon", label: "Afternoon" },
+          { value: "Evening", label: "Evening" }
+        ], "timeOfDay", null);
+
+        _ftRenderBadges("ft-sts-reps", [
+          { value: "5", label: "5x" },
+          { value: "10", label: "10x" },
+          { value: "Max", label: "Max" }
+        ], "stsReps", _ftUpdateStsPlaceholder);
+
+        _ftRenderBadges("ft-sts-arm-support", [
+          { value: "none", label: "None (arms crossed)" },
+          { value: "thighs", label: "Hands on thighs" },
+          { value: "walker", label: "Walker / rails" },
+          { value: "full", label: "Full assist" }
+        ], "armSupport", null);
+
+        _ftLoadCourseLength();
+      }
+
+      // ── Course length persistence in user settings ──
+      async function _ftLoadCourseLength() {
+        try {
+          if (!window.CURRENT_UID || typeof firebase === "undefined") return;
+          const doc = await firebase.firestore().collection("users").doc(window.CURRENT_UID)
+            .collection("settings").doc("protocol").get();
+          if (doc.exists && doc.data()?.courseLength) {
+            window.__courseLength = doc.data().courseLength;
+            const inp = el("ft-6m-course");
+            if (inp && !inp.value) {
+              inp.value = window.__courseLength;
+              window._ftRecalcDistance();
+            }
+          }
+        } catch(e) { console.warn("Could not load course length setting:", e); }
+      }
+
+      function _ftSaveCourseLength() {
+        const v = asNumber(val("ft-6m-course"));
+        if (!v || !window.CURRENT_UID || typeof firebase === "undefined") return;
+        window.__courseLength = v;
+        firebase.firestore().collection("users").doc(window.CURRENT_UID)
+          .collection("settings").doc("protocol").set({
+            courseLength: v,
+            courseLengthUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true }).catch(function(e) { console.warn("Course length save failed:", e); });
+      }
+
+      (function() {
+        const _initCourseBlur = function() {
+          const inp = el("ft-6m-course");
+          if (inp) inp.addEventListener("blur", _ftSaveCourseLength);
+        };
+        if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", _initCourseBlur);
+        else _initCourseBlur();
+      })();
 
       window.handlePilotSave = async function() {
         setBtn("p-save-log", true, "SAVING...");
@@ -3330,19 +3527,28 @@ Conceptual Foundation and Mechanistic Framework
 
       function collectFunctionalTestPayload() {
         const testDate = trimText(val("ft-date")) || localDateStr();
+        const courseLen = asNumber(val("ft-6m-course"));
+        const laps = asNumber(val("ft-6m-laps"));
+        const calcDist = (courseLen && laps) ? Math.round(courseLen * laps * 10) / 10 : null;
         return {
           test_date: testDate,
+          time_of_day: window.__ftState.timeOfDay || null,
           six_minute_walk: {
-            distance_m: asNumber(val("ft-6m-distance")),
+            laps: laps,
+            calculated_distance_m: calcDist,
             rest_breaks_count: asNumber(val("ft-6m-restbreaks")),
             assistive_device: trimText(val("ft-6m-device")) || null,
-            course_length_m: asNumber(val("ft-6m-course")),
-            perceived_exertion: asNumber(val("ft-6m-rpe"))
+            course_length_m: courseLen,
+            perceived_exertion: asNumber(val("ft-6m-rpe")),
+            post_test_fatigue: asNumber(val("ft-6m-fatigue"))
           },
           sit_to_stand_5x: {
             time_seconds: asNumber(val("ft-5x-time")),
-            used_arms: mustEnum(val("ft-5x-arms"), ["yes","no"], null),
-            chair_height_cm: asNumber(val("ft-5x-chair"))
+            arm_support: window.__ftState.armSupport || null,
+            target_reps: window.__ftState.stsReps || null,
+            reps_completed: asNumber(val("ft-sts-completed")),
+            chair_height_cm: asNumber(val("ft-5x-chair")),
+            perceived_exertion: asNumber(val("ft-sts-exertion"))
           },
           notes: trimText(val("ft-notes")) || null
         };
@@ -3712,6 +3918,9 @@ Conceptual Foundation and Mechanistic Framework
           form.addEventListener("input", scheduleDraftSave);
           form.addEventListener("change", scheduleDraftSave);
         }
+
+        // Initialize functional test badges
+        if (typeof _ftInitBadges === "function") _ftInitBadges();
 
         // Restore draft after a short delay to let dynamic elements initialize
         setTimeout(loadDraft, 120);

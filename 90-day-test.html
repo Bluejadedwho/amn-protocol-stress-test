@@ -470,18 +470,30 @@ function generateFunctionalTest(dayIndex, totalDays, pattern) {
     stsBase  = 15;
   }
 
+  const courseLength = 30;
+  const distance = Math.round(walkBase + randFloat(-15, 15));
+  const laps = Math.round((distance / courseLength) * 2) / 2; // round to nearest 0.5
+  const targetReps = pick(['5', '10']);
+  const targetNum = parseInt(targetReps, 10);
+
   return {
+    time_of_day: pick(['Morning', 'Midday', 'Afternoon', 'Evening']),
     six_minute_walk: {
-      distance_m: Math.round(walkBase + randFloat(-15, 15)),
+      laps: laps,
+      calculated_distance_m: Math.round(laps * courseLength * 10) / 10,
       rest_breaks_count: clamp(rand(0, 3), 0, 5),
       assistive_device: boolChance(0.3) ? pick(['cane', 'none']) : null,
-      course_length_m: 30,
-      perceived_exertion: clamp(rand(4, 8), 1, 10)
+      course_length_m: courseLength,
+      perceived_exertion: clamp(rand(4, 8), 1, 10),
+      post_test_fatigue: clamp(rand(3, 7), 0, 10)
     },
     sit_to_stand_5x: {
       time_seconds: Math.round((stsBase + randFloat(-2, 2)) * 10) / 10,
-      used_arms: pick(['yes', 'no']),
-      chair_height_cm: 46
+      arm_support: pick(['none', 'thighs', 'walker', 'full']),
+      target_reps: targetReps,
+      reps_completed: boolChance(0.85) ? targetNum : clamp(targetNum - rand(1, 2), 1, targetNum),
+      chair_height_cm: 46,
+      perceived_exertion: clamp(rand(4, 8), 0, 10)
     },
     notes: boolChance(0.3) ? pick([
       'Felt stronger today',
