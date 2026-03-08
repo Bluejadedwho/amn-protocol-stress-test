@@ -1791,6 +1791,7 @@ Conceptual Foundation and Mechanistic Framework
 <label>Primary pain driver today</label>
 <select id="p-pain-location">
 <option value="">Select</option>
+<option value="neck">Neck</option>
 <option value="piriformis_glute">Piriformis or glute</option>
 <option value="low_back">Low back</option>
 <option value="hip">Hip</option>
@@ -2497,7 +2498,7 @@ Conceptual Foundation and Mechanistic Framework
             forced_extra_rest: checked("p-pain-rest"),
             required_rescue_meds: checked("p-pain-meds"),
             changed_gait_mechanics: checked("p-pain-gait"),
-            primary_driver: mustEnum(val("p-pain-location"), ["piriformis_glute","low_back","hip","thigh","calf","foot","other"], null)
+            primary_driver: mustEnum(val("p-pain-location"), ["neck","piriformis_glute","low_back","hip","thigh","calf","foot","other"], null)
           },
           context_changes: {
             poor_sleep_last_night: checked("p-conf-sleep"),
