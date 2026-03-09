@@ -509,15 +509,42 @@ function generateFunctionalTest(dayIndex, totalDays, pattern) {
 }
 
 // ============================================================
-// Blood / lab test generator — single initial baseline
+// Blood / lab test generator — full panel, baseline & 3-month
 // ============================================================
-function generateInitialLabResults() {
+function generateLabPanel(phase) {
+  const isBaseline = phase === "baseline";
   return {
     lab: {
-      test_date: null, // will be set to start date
-      vlcfa_c26: (randFloat(1.0, 2.8)).toFixed(2),
-      liver_alt_ast: `${rand(18, 45)} / ${rand(20, 42)}`,
-      notes: 'Baseline labs — pre-protocol'
+      test_date: null, // set by caller
+      // VLCFA panel — baseline higher, 3-month trending down
+      vlcfa_c24: randFloat(isBaseline ? 18.0 : 16.0, isBaseline ? 28.0 : 24.0).toFixed(1),
+      vlcfa_c25: randFloat(isBaseline ? 0.8 : 0.6, isBaseline ? 1.6 : 1.3).toFixed(2),
+      vlcfa_c26: randFloat(isBaseline ? 1.0 : 0.7, isBaseline ? 2.8 : 2.2).toFixed(2),
+      vlcfa_ratio: randFloat(isBaseline ? 0.018 : 0.014, isBaseline ? 0.035 : 0.028).toFixed(3),
+      // CBC
+      cbc: `WBC ${randFloat(4.0, 10.0).toFixed(1)}, Hgb ${randFloat(12.5, 16.5).toFixed(1)}, Plt ${rand(150, 350)}`,
+      // Liver enzymes
+      ast: String(rand(15, 40)),
+      alt: String(rand(12, 45)),
+      alp: String(rand(40, 120)),
+      bilirubin: randFloat(0.3, 1.2).toFixed(1),
+      // Kidney
+      creatinine: randFloat(0.7, 1.3).toFixed(1),
+      egfr: String(rand(75, 120)),
+      // Electrolytes
+      sodium: String(rand(136, 145)),
+      potassium: randFloat(3.5, 5.0).toFixed(1),
+      chloride: String(rand(98, 106)),
+      bicarbonate: String(rand(22, 28)),
+      // Lipid panel
+      cholesterol: String(rand(150, 240)),
+      ldl: String(rand(70, 160)),
+      hdl: String(rand(40, 80)),
+      triglycerides: String(rand(60, 200)),
+      // Optional advanced — null for synthetic data
+      plasma_fatty_acid: null,
+      rbc_membrane_fa: null,
+      notes: isBaseline ? 'Baseline labs — pre-protocol' : '3-month follow-up labs'
     }
   };
 }
@@ -568,11 +595,19 @@ async function runLoader() {
     payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
     payload.clientUpdatedAt = new Date().toISOString();
 
-    // Embed initial blood test on day 0
+    // Embed baseline lab panel on day 0
     if (i === 0) {
-      const labs = generateInitialLabResults();
+      const labs = generateLabPanel("baseline");
       labs.lab.test_date = dateStr;
       Object.assign(payload, labs);
+      log('Embedded baseline lab panel on ' + dateStr, 'info');
+    }
+    // Embed 3-month follow-up lab panel on day 90 (or last day if < 90)
+    if (i === Math.min(90, days - 1) && i > 0) {
+      const labs = generateLabPanel("3month");
+      labs.lab.test_date = dateStr;
+      Object.assign(payload, labs);
+      log('Embedded 3-month lab panel on ' + dateStr, 'info');
     }
 
     try {

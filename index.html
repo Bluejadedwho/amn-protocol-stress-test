@@ -1275,6 +1275,24 @@ body.modal-open {
 
         const endLabel = byId('pt-end-label');
         if (endLabel) endLabel.textContent = 'Ends: ' + formatDate(addDays(startDate, TOTAL_DAYS - 1));
+
+        // Lab reminder banner
+        const labBanner = byId('lab-reminder-banner');
+        const labText = byId('lab-reminder-text');
+        if (labBanner && labText) {
+          if (currentDay <= 0) {
+            labBanner.style.display = 'block';
+            labText.textContent = ' \u2014 Baseline labs can be drawn anytime before protocol start';
+          } else if (currentDay >= 76 && currentDay <= 120) {
+            const daysUntilLab = 90 - currentDay;
+            labBanner.style.display = 'block';
+            labText.textContent = daysUntilLab > 0
+              ? ' \u2014 3-month follow-up labs due in ' + daysUntilLab + ' days'
+              : ' \u2014 3-month follow-up labs are due now';
+          } else {
+            labBanner.style.display = 'none';
+          }
+        }
       }
 
       window.setProtocolStartDate = function() {
@@ -1590,6 +1608,10 @@ Conceptual Foundation and Mechanistic Framework
     <span id="pt-start-label">Started: —</span>
     <span id="pt-end-label">Ends: —</span>
   </div>
+  <div id="lab-reminder-banner" style="display:none; margin-top:10px; padding:10px 14px; border-radius:10px; background:#2a1a3e; border:1px solid #BF5AF2; font-size:0.85rem; color:#ddd;">
+    <span style="color:#BF5AF2; font-weight:700;">Lab Panel</span>
+    <span id="lab-reminder-text"></span>
+  </div>
   <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
     <button class="phase-tracker-info-btn" type="button" onclick="window.showRoadmapModal()">View 120-Day Roadmap</button>
     <button class="phase-tracker-reset" id="phase-tracker-reset-btn" type="button" onclick="window.resetProtocolStartDate()" style="margin-top:0;">Reset start date</button>
@@ -1892,16 +1914,112 @@ Conceptual Foundation and Mechanistic Framework
 </div>
 
 <details class="lab-folder" style="margin-bottom: 20px; margin-top: 0;">
-<summary><div class="summary-text" style="color:#BF5AF2;">Periodic Lab Results<br/>(VLCFA &amp; Liver)</div></summary>
+<summary><div class="summary-text" style="color:#BF5AF2;">Laboratory Panel</div></summary>
 <div class="folder-content">
+<p style="color:#9a9a9f; font-size:0.85rem; line-height:1.45; margin: 0 0 14px 0;">Baseline, 3 months, then every 6 months. Enter values from your lab report.</p>
+
 <div class="input-group" style="margin-bottom:15px;">
 <label>Date of Test</label>
 <input id="lab-date" type="date"/>
 </div>
-<div class="input-row">
-<div class="input-group"><label>VLCFA (C26:0)</label><input id="lab-vlcfa" placeholder="e.g. 1.25" type="text"/></div>
-<div class="input-group"><label>Liver (ALT/AST)</label><input id="lab-liver" placeholder="e.g. 25 / 30" type="text"/></div>
+
+<!-- VLCFA Panel -->
+<div style="display:flex; align-items:center; gap:10px; margin:8px 0 14px;">
+<div style="flex:1; height:1px; background:#333;"></div>
+<span style="color:#BF5AF2; font-size:0.7rem; white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px;">VLCFA Panel</span>
+<div style="flex:1; height:1px; background:#333;"></div>
 </div>
+<div class="input-row">
+<div class="input-group"><label>C24:0</label><input id="lab-vlcfa-c24" placeholder="µg/mL" type="text"/></div>
+<div class="input-group"><label>C25:0</label><input id="lab-vlcfa-c25" placeholder="µg/mL" type="text"/></div>
+</div>
+<div class="input-row" style="margin-top:10px;">
+<div class="input-group"><label>C26:0</label><input id="lab-vlcfa-c26" placeholder="µg/mL" type="text"/></div>
+<div class="input-group"><label>C26:0 / C22:0 Ratio</label><input id="lab-vlcfa-ratio" placeholder="e.g. 0.023" type="text"/></div>
+</div>
+
+<!-- CBC -->
+<div style="display:flex; align-items:center; gap:10px; margin:18px 0 14px;">
+<div style="flex:1; height:1px; background:#333;"></div>
+<span style="color:#BF5AF2; font-size:0.7rem; white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px;">Complete Blood Count</span>
+<div style="flex:1; height:1px; background:#333;"></div>
+</div>
+<div class="input-group">
+<label>CBC</label>
+<input id="lab-cbc" placeholder="e.g. WBC 5.2, Hgb 14.1, Plt 210" type="text"/>
+</div>
+
+<!-- Liver Enzymes -->
+<div style="display:flex; align-items:center; gap:10px; margin:18px 0 14px;">
+<div style="flex:1; height:1px; background:#333;"></div>
+<span style="color:#BF5AF2; font-size:0.7rem; white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px;">Liver Enzymes</span>
+<div style="flex:1; height:1px; background:#333;"></div>
+</div>
+<div class="input-row">
+<div class="input-group"><label>AST</label><input id="lab-ast" placeholder="U/L" type="text"/></div>
+<div class="input-group"><label>ALT</label><input id="lab-alt" placeholder="U/L" type="text"/></div>
+</div>
+<div class="input-row" style="margin-top:10px;">
+<div class="input-group"><label>ALP</label><input id="lab-alp" placeholder="U/L" type="text"/></div>
+<div class="input-group"><label>Total Bilirubin</label><input id="lab-bilirubin" placeholder="mg/dL" type="text"/></div>
+</div>
+
+<!-- Kidney Function -->
+<div style="display:flex; align-items:center; gap:10px; margin:18px 0 14px;">
+<div style="flex:1; height:1px; background:#333;"></div>
+<span style="color:#BF5AF2; font-size:0.7rem; white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px;">Kidney Function</span>
+<div style="flex:1; height:1px; background:#333;"></div>
+</div>
+<div class="input-row">
+<div class="input-group"><label>Creatinine</label><input id="lab-creatinine" placeholder="mg/dL" type="text"/></div>
+<div class="input-group"><label>eGFR</label><input id="lab-egfr" placeholder="mL/min" type="text"/></div>
+</div>
+
+<!-- Electrolytes -->
+<div style="display:flex; align-items:center; gap:10px; margin:18px 0 14px;">
+<div style="flex:1; height:1px; background:#333;"></div>
+<span style="color:#BF5AF2; font-size:0.7rem; white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px;">Electrolytes</span>
+<div style="flex:1; height:1px; background:#333;"></div>
+</div>
+<div class="input-row">
+<div class="input-group"><label>Sodium</label><input id="lab-sodium" placeholder="mEq/L" type="text"/></div>
+<div class="input-group"><label>Potassium</label><input id="lab-potassium" placeholder="mEq/L" type="text"/></div>
+</div>
+<div class="input-row" style="margin-top:10px;">
+<div class="input-group"><label>Chloride</label><input id="lab-chloride" placeholder="mEq/L" type="text"/></div>
+<div class="input-group"><label>Bicarbonate</label><input id="lab-bicarb" placeholder="mEq/L" type="text"/></div>
+</div>
+
+<!-- Fasting Lipid Panel -->
+<div style="display:flex; align-items:center; gap:10px; margin:18px 0 14px;">
+<div style="flex:1; height:1px; background:#333;"></div>
+<span style="color:#BF5AF2; font-size:0.7rem; white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px;">Fasting Lipid Panel</span>
+<div style="flex:1; height:1px; background:#333;"></div>
+</div>
+<div class="input-row">
+<div class="input-group"><label>Total Cholesterol</label><input id="lab-chol" placeholder="mg/dL" type="text"/></div>
+<div class="input-group"><label>LDL</label><input id="lab-ldl" placeholder="mg/dL" type="text"/></div>
+</div>
+<div class="input-row" style="margin-top:10px;">
+<div class="input-group"><label>HDL</label><input id="lab-hdl" placeholder="mg/dL" type="text"/></div>
+<div class="input-group"><label>Triglycerides</label><input id="lab-trig" placeholder="mg/dL" type="text"/></div>
+</div>
+
+<!-- Optional Advanced Monitoring -->
+<details style="margin-top:18px; border:1px solid #333; border-radius:10px; padding:0;">
+<summary style="padding:10px 14px; cursor:pointer; color:#888; font-size:0.85rem;">Optional Advanced Monitoring (if available)</summary>
+<div style="padding:6px 14px 14px;">
+<div class="input-group" style="margin-top:8px;">
+<label>Plasma Fatty Acid Profile</label>
+<textarea id="lab-plasma-fa" placeholder="Paste or summarize results" rows="2"></textarea>
+</div>
+<div class="input-group" style="margin-top:12px;">
+<label>RBC Membrane Fatty Acid</label>
+<textarea id="lab-rbc-fa" placeholder="Paste or summarize results" rows="2"></textarea>
+</div>
+</div>
+</details>
+
 <div class="input-group" style="margin-top:15px;">
 <label>Notes</label>
 <textarea id="lab-notes" placeholder="Specific details..." rows="2"></textarea>
@@ -2567,8 +2685,34 @@ Conceptual Foundation and Mechanistic Framework
           date: date || localDateStr(),
           lab: {
             test_date: date || null,
-            vlcfa_c26: trimText(val("lab-vlcfa")) || null,
-            liver_alt_ast: trimText(val("lab-liver")) || null,
+            // VLCFA panel
+            vlcfa_c24: trimText(val("lab-vlcfa-c24")) || null,
+            vlcfa_c25: trimText(val("lab-vlcfa-c25")) || null,
+            vlcfa_c26: trimText(val("lab-vlcfa-c26")) || null,
+            vlcfa_ratio: trimText(val("lab-vlcfa-ratio")) || null,
+            // CBC
+            cbc: trimText(val("lab-cbc")) || null,
+            // Liver enzymes
+            ast: trimText(val("lab-ast")) || null,
+            alt: trimText(val("lab-alt")) || null,
+            alp: trimText(val("lab-alp")) || null,
+            bilirubin: trimText(val("lab-bilirubin")) || null,
+            // Kidney function
+            creatinine: trimText(val("lab-creatinine")) || null,
+            egfr: trimText(val("lab-egfr")) || null,
+            // Electrolytes
+            sodium: trimText(val("lab-sodium")) || null,
+            potassium: trimText(val("lab-potassium")) || null,
+            chloride: trimText(val("lab-chloride")) || null,
+            bicarbonate: trimText(val("lab-bicarb")) || null,
+            // Fasting lipid panel
+            cholesterol: trimText(val("lab-chol")) || null,
+            ldl: trimText(val("lab-ldl")) || null,
+            hdl: trimText(val("lab-hdl")) || null,
+            triglycerides: trimText(val("lab-trig")) || null,
+            // Optional advanced
+            plasma_fatty_acid: trimText(val("lab-plasma-fa")) || null,
+            rbc_membrane_fa: trimText(val("lab-rbc-fa")) || null,
             notes: trimText(val("lab-notes")) || null
           }
         };
@@ -3111,15 +3255,52 @@ Conceptual Foundation and Mechanistic Framework
               <p>Neuro Training Level: ${vr(extLevel)}${extLabel ? ` (${extLabel})` : ""}</p>
             </div>`;
 
-            const vlcfa = pick(labs,"vlcfa_c26","vlcfa");
-            const liver = pick(labs,"liver_alt_ast");
-            const labNotes = pick(labs,"notes");
-            if (vlcfa !== undefined || liver !== undefined || labNotes !== undefined) {
-              html += `<div class="report-section"><h3>Periodic Lab Results</h3>
-                <p>VLCFA: ${vr(vlcfa)}</p>
-                <p>Liver (ALT/AST): ${vr(liver)}</p>
-                <p>Notes: ${vr(labNotes)}</p>
-              </div>`;
+            const hasLab = labs && Object.values(labs).some(v => v !== null && v !== undefined && v !== "");
+            if (hasLab) {
+              html += `<div class="report-section"><h3>Laboratory Panel</h3>`;
+              // VLCFA
+              const c24 = pick(labs,"vlcfa_c24"); const c25 = pick(labs,"vlcfa_c25");
+              const c26 = pick(labs,"vlcfa_c26","vlcfa"); const ratio = pick(labs,"vlcfa_ratio");
+              if (c24 !== undefined || c25 !== undefined || c26 !== undefined || ratio !== undefined) {
+                html += `<p><strong>VLCFA Panel:</strong> C24:0 ${vr(c24," µg/mL")} · C25:0 ${vr(c25," µg/mL")} · C26:0 ${vr(c26," µg/mL")} · C26/C22 ratio ${vr(ratio)}</p>`;
+              }
+              // CBC
+              const cbc = pick(labs,"cbc");
+              if (cbc !== undefined) html += `<p><strong>CBC:</strong> ${vr(cbc)}</p>`;
+              // Liver enzymes (with legacy fallback)
+              const ast = pick(labs,"ast"); const alt = pick(labs,"alt");
+              const alp = pick(labs,"alp"); const bili = pick(labs,"bilirubin");
+              const legacyLiver = pick(labs,"liver_alt_ast");
+              if (ast !== undefined || alt !== undefined || alp !== undefined || bili !== undefined) {
+                html += `<p><strong>Liver Enzymes:</strong> AST ${vr(ast," U/L")} · ALT ${vr(alt," U/L")} · ALP ${vr(alp," U/L")} · Bilirubin ${vr(bili," mg/dL")}</p>`;
+              } else if (legacyLiver !== undefined) {
+                html += `<p><strong>Liver (ALT/AST):</strong> ${vr(legacyLiver)}</p>`;
+              }
+              // Kidney
+              const creat = pick(labs,"creatinine"); const egfr = pick(labs,"egfr");
+              if (creat !== undefined || egfr !== undefined) {
+                html += `<p><strong>Kidney:</strong> Creatinine ${vr(creat," mg/dL")} · eGFR ${vr(egfr," mL/min")}</p>`;
+              }
+              // Electrolytes
+              const na = pick(labs,"sodium"); const k = pick(labs,"potassium");
+              const cl = pick(labs,"chloride"); const bicarb = pick(labs,"bicarbonate");
+              if (na !== undefined || k !== undefined || cl !== undefined || bicarb !== undefined) {
+                html += `<p><strong>Electrolytes:</strong> Na ${vr(na," mEq/L")} · K ${vr(k," mEq/L")} · Cl ${vr(cl," mEq/L")} · HCO₃ ${vr(bicarb," mEq/L")}</p>`;
+              }
+              // Lipid panel
+              const chol = pick(labs,"cholesterol"); const ldl = pick(labs,"ldl");
+              const hdl = pick(labs,"hdl"); const trig = pick(labs,"triglycerides");
+              if (chol !== undefined || ldl !== undefined || hdl !== undefined || trig !== undefined) {
+                html += `<p><strong>Lipid Panel:</strong> Total ${vr(chol," mg/dL")} · LDL ${vr(ldl," mg/dL")} · HDL ${vr(hdl," mg/dL")} · Triglycerides ${vr(trig," mg/dL")}</p>`;
+              }
+              // Optional advanced
+              const plasmaFa = pick(labs,"plasma_fatty_acid"); const rbcFa = pick(labs,"rbc_membrane_fa");
+              if (plasmaFa !== undefined) html += `<p><strong>Plasma Fatty Acid Profile:</strong> ${vr(plasmaFa)}</p>`;
+              if (rbcFa !== undefined) html += `<p><strong>RBC Membrane Fatty Acid:</strong> ${vr(rbcFa)}</p>`;
+              // Notes
+              const labNotes = pick(labs,"notes");
+              if (labNotes !== undefined) html += `<p><strong>Notes:</strong> ${vr(labNotes)}</p>`;
+              html += `</div>`;
             }
 
             // FIX #2: Functional tests now merged from tests collection; render all fields
@@ -3384,7 +3565,11 @@ Conceptual Foundation and Mechanistic Framework
 
 
       function hasLabData() {
-        return !!(trimText(val("lab-vlcfa")) || trimText(val("lab-liver")) || trimText(val("lab-notes")));
+        const labFields = ["lab-vlcfa-c24","lab-vlcfa-c25","lab-vlcfa-c26","lab-vlcfa-ratio",
+          "lab-cbc","lab-ast","lab-alt","lab-alp","lab-bilirubin","lab-creatinine","lab-egfr",
+          "lab-sodium","lab-potassium","lab-chloride","lab-bicarb","lab-chol","lab-ldl","lab-hdl",
+          "lab-trig","lab-plasma-fa","lab-rbc-fa","lab-notes"];
+        return labFields.some(id => trimText(val(id)));
       }
 
       function hasFunctionalTestData() {
