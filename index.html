@@ -513,6 +513,7 @@
     .phase-tracker-badge.phase-1 { background: rgba(48, 209, 88, 0.15); color: var(--accent-color); border: 1px solid rgba(48, 209, 88, 0.3); }
     .phase-tracker-badge.phase-2 { background: rgba(10, 132, 255, 0.15); color: var(--accent-blue); border: 1px solid rgba(10, 132, 255, 0.3); }
     .phase-tracker-badge.phase-3 { background: rgba(191, 90, 242, 0.15); color: var(--lab-purple); border: 1px solid rgba(191, 90, 242, 0.3); }
+    .phase-tracker-badge.phase-4 { background: rgba(255, 159, 10, 0.15); color: #FF9F0A; border: 1px solid rgba(255, 159, 10, 0.3); }
     .phase-tracker-badge.phase-done { background: rgba(48, 209, 88, 0.2); color: var(--accent-color); border: 1px solid rgba(48, 209, 88, 0.4); }
     .phase-tracker-badge.phase-pre { background: rgba(142, 142, 147, 0.15); color: var(--text-secondary); border: 1px solid rgba(142, 142, 147, 0.3); }
     .phase-tracker-title {
@@ -537,6 +538,7 @@
     .phase-tracker-bar-fill.phase-0-fill { background: linear-gradient(90deg, #FFD60A, var(--accent-color)); }
     .phase-tracker-bar-fill.phase-2-fill { background: linear-gradient(90deg, var(--accent-blue), var(--lab-purple)); }
     .phase-tracker-bar-fill.phase-3-fill { background: linear-gradient(90deg, var(--lab-purple), var(--accent-color)); }
+    .phase-tracker-bar-fill.phase-4-fill { background: linear-gradient(90deg, #FF9F0A, #FF6B2C); }
     .phase-tracker-bar-fill.phase-done-fill { background: var(--accent-color); }
     .phase-tracker-phases {
       display: flex;
@@ -592,6 +594,40 @@
       white-space: nowrap;
     }
     .phase-tracker-info-btn:hover { border-color: #666; color: #fff; }
+    /* Baseline panel complete state */
+    .baseline-complete-summary {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      padding: 4px 0;
+    }
+    .baseline-complete-summary .check { color: var(--accent-color); font-weight: 700; }
+    /* Milestone markers */
+    .milestone-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .milestone-marker {
+      font-size: 0.65rem;
+      color: var(--text-secondary);
+      text-align: center;
+      padding: 3px 6px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      flex: 1;
+    }
+    .milestone-marker.milestone-done {
+      color: var(--accent-color);
+      border-color: rgba(48, 209, 88, 0.3);
+      background: rgba(48, 209, 88, 0.08);
+    }
+    .milestone-marker.milestone-soon {
+      color: #FFD60A;
+      border-color: rgba(255, 214, 10, 0.3);
+      background: rgba(255, 214, 10, 0.08);
+    }
     /* Roadmap Modal */
     #roadmap-modal {
       display: none;
@@ -1115,69 +1151,94 @@ body.modal-open {
       window.scrollTo(0,0);
     };
 
-    // --- 120-DAY PROTOCOL PROGRESS TRACKER ---
+    // --- TWO-PANEL PROTOCOL TRACKER ---
+    // Panel 1: Baseline Testing (variable length, pre-NA)
+    // Panel 2: NA Protocol (365-day year-one timeline)
     (function initPhaseTracker() {
-      const LS_KEY = 'amn_protocol_start_date';
+      const LS_BASELINE_KEY = 'amn_baseline_start_date';
+      const LS_NA_KEY = 'amn_na_start_date';
+      const LS_OLD_KEY = 'amn_protocol_start_date';
 
-      const TOTAL_DAYS = 120;
-      const PHASES = [
-        { num: 0, name: 'Baseline Observation (No NA)', range: [1, 30], cls: 'phase-0', fillCls: 'phase-0-fill' },
-        { num: 1, name: 'Tolerability & Baseline Lock', range: [31, 60], cls: 'phase-1', fillCls: '' },
-        { num: 2, name: 'Signal Detection', range: [61, 90], cls: 'phase-2', fillCls: 'phase-2-fill' },
-        { num: 3, name: 'Confirmation & Passenger Decision', range: [91, 120], cls: 'phase-3', fillCls: 'phase-3-fill' }
+      // Migrate from old single-key format
+      (function migrateOldKey() {
+        try {
+          const oldVal = localStorage.getItem(LS_OLD_KEY);
+          if (oldVal && !localStorage.getItem(LS_BASELINE_KEY)) {
+            localStorage.setItem(LS_BASELINE_KEY, oldVal);
+            localStorage.removeItem(LS_OLD_KEY);
+          }
+        } catch(e) {}
+      })();
+
+      const NA_TOTAL_DAYS = 365;
+      const NA_PHASES = [
+        { num: 1, name: 'Tolerability & Baseline Lock', range: [1, 30], cls: 'phase-1', fillCls: '' },
+        { num: 2, name: 'Monitoring & Follow-up Labs', range: [31, 90], cls: 'phase-2', fillCls: 'phase-2-fill' },
+        { num: 3, name: 'Maintenance', range: [91, 270], cls: 'phase-3', fillCls: 'phase-3-fill' },
+        { num: 4, name: 'Dose Evaluation Window', range: [271, 365], cls: 'phase-4', fillCls: 'phase-4-fill' }
       ];
 
-      function getStartDate() {
-        try { return localStorage.getItem(LS_KEY) || ''; } catch(e) { return ''; }
+      // --- Storage helpers ---
+      function getVal(key) {
+        try { return localStorage.getItem(key) || ''; } catch(e) { return ''; }
+      }
+      function setVal(key, v) {
+        try { localStorage.setItem(key, v); } catch(e) {}
+      }
+      function removeVal(key) {
+        try { localStorage.removeItem(key); } catch(e) {}
       }
 
-      function setStartDateLocal(dateStr) {
-        try { localStorage.setItem(LS_KEY, dateStr); } catch(e) {}
-      }
-
-      function removeStartDateLocal() {
-        try { localStorage.removeItem(LS_KEY); } catch(e) {}
-      }
-
-      // Firestore sync helpers (called after Firebase is ready)
-      function saveToFirestore(dateStr) {
+      // Firestore helpers — uses protocol_test for test environment
+      function saveToFirestore(fields) {
         try {
           if (window.CURRENT_UID && typeof firebase !== 'undefined' && firebase.firestore) {
             firebase.firestore().collection('users').doc(window.CURRENT_UID)
               .collection('settings').doc('protocol_test')
-              .set({ startDate: dateStr, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+              .set({ ...fields, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
           }
         } catch(e) { console.warn('Phase tracker Firestore save failed:', e); }
       }
 
-      function removeFromFirestore() {
+      function removeFieldsFromFirestore(fieldNames) {
         try {
           if (window.CURRENT_UID && typeof firebase !== 'undefined' && firebase.firestore) {
+            const updates = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+            fieldNames.forEach(f => updates[f] = firebase.firestore.FieldValue.delete());
             firebase.firestore().collection('users').doc(window.CURRENT_UID)
               .collection('settings').doc('protocol_test')
-              .update({ startDate: firebase.firestore.FieldValue.delete(), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+              .update(updates);
           }
         } catch(e) { console.warn('Phase tracker Firestore remove failed:', e); }
       }
 
-      // Pull from Firestore on login — Firestore wins if localStorage is empty
+      // Pull from Firestore on login
       window.__phaseTrackerSyncFromFirestore = async function() {
         try {
           if (!window.CURRENT_UID || typeof firebase === 'undefined') return;
           const doc = await firebase.firestore().collection('users').doc(window.CURRENT_UID)
             .collection('settings').doc('protocol_test').get();
-          if (doc.exists && doc.data()?.startDate) {
-            const remoteDate = doc.data().startDate;
-            const localDate = getStartDate();
-            if (!localDate) {
-              setStartDateLocal(remoteDate);
-              render();
-            } else if (localDate !== remoteDate) {
-              saveToFirestore(localDate);
+          if (!doc.exists) {
+            const bl = getVal(LS_BASELINE_KEY);
+            const na = getVal(LS_NA_KEY);
+            if (bl || na) {
+              const fields = {};
+              if (bl) fields.baselineStartDate = bl;
+              if (na) fields.naStartDate = na;
+              saveToFirestore(fields);
             }
-          } else if (getStartDate()) {
-            saveToFirestore(getStartDate());
+            return;
           }
+          const data = doc.data() || {};
+          const remoteBaseline = data.baselineStartDate || data.startDate || '';
+          const localBaseline = getVal(LS_BASELINE_KEY);
+          if (remoteBaseline && !localBaseline) { setVal(LS_BASELINE_KEY, remoteBaseline); }
+          else if (localBaseline && localBaseline !== remoteBaseline) { saveToFirestore({ baselineStartDate: localBaseline }); }
+          const remoteNA = data.naStartDate || '';
+          const localNA = getVal(LS_NA_KEY);
+          if (remoteNA && !localNA) { setVal(LS_NA_KEY, remoteNA); }
+          else if (localNA && localNA !== remoteNA) { saveToFirestore({ naStartDate: localNA }); }
+          render();
         } catch(e) { console.warn('Phase tracker Firestore sync failed:', e); }
       };
 
@@ -1190,7 +1251,7 @@ body.modal-open {
       }
 
       function formatDate(dateStr) {
-        if (!dateStr) return '—';
+        if (!dateStr) return '\u2014';
         const d = new Date(dateStr + 'T00:00:00');
         const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
@@ -1205,110 +1266,232 @@ body.modal-open {
         return `${y}-${m}-${day}`;
       }
 
-      function render() {
-        const tracker = byId('phase-tracker');
-        const setup = byId('phase-tracker-setup');
-        const active = byId('phase-tracker-active');
-        if (!tracker || !setup || !active) return;
+      function todayStr() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }
 
-        const startDate = getStartDate();
-        if (!startDate) {
+      function render() {
+        renderBaseline();
+        renderNA();
+      }
+
+      // --- BASELINE PANEL ---
+      function renderBaseline() {
+        const setup = byId('baseline-setup');
+        const active = byId('baseline-active');
+        const complete = byId('baseline-complete');
+        if (!setup || !active || !complete) return;
+
+        const blDate = getVal(LS_BASELINE_KEY);
+        const naDate = getVal(LS_NA_KEY);
+
+        if (!blDate) {
           setup.style.display = 'block';
           active.style.display = 'none';
-          const input = byId('phase-tracker-date-input');
-          if (input && !input.value) {
-            const now = new Date();
-            const y = now.getFullYear();
-            const m = String(now.getMonth() + 1).padStart(2, '0');
-            const d = String(now.getDate()).padStart(2, '0');
-            input.value = `${y}-${m}-${d}`;
+          complete.style.display = 'none';
+          const input = byId('baseline-date-input');
+          if (input && !input.value) input.value = todayStr();
+          return;
+        }
+
+        if (naDate) {
+          setup.style.display = 'none';
+          active.style.display = 'none';
+          complete.style.display = 'block';
+          const el = byId('baseline-summary');
+          if (el) {
+            if (blDate < naDate) {
+              el.textContent = 'Baseline completed: ' + formatDate(blDate) + ' \u2014 ' + formatDate(addDays(naDate, -1));
+            } else {
+              el.textContent = 'Baseline locked \u2014 NA started ' + formatDate(naDate);
+            }
           }
           return;
         }
 
         setup.style.display = 'none';
         active.style.display = 'block';
+        complete.style.display = 'none';
 
-        const currentDay = daysBetween(startDate);
-        const clampedDay = Math.max(0, Math.min(currentDay, TOTAL_DAYS));
-        const pct = Math.min(100, Math.max(0, (clampedDay / TOTAL_DAYS) * 100));
+        const currentDay = daysBetween(blDate);
+        const dayEl = byId('bl-current-day');
+        if (dayEl) dayEl.textContent = currentDay <= 0 ? 'Pre' : String(currentDay);
 
-        const dayEl = byId('pt-current-day');
-        if (dayEl) dayEl.textContent = currentDay <= 0 ? 'Pre' : (currentDay > TOTAL_DAYS ? TOTAL_DAYS + '+' : String(currentDay));
+        const startLabel = byId('bl-start-label');
+        if (startLabel) startLabel.textContent = 'Started: ' + formatDate(blDate);
 
-        // Determine phase
+        const labBanner = byId('bl-lab-banner');
+        const labText = byId('bl-lab-text');
+        if (labBanner && labText) {
+          if (currentDay <= 0) {
+            labBanner.style.display = 'block';
+            labText.textContent = ' \u2014 Baseline labs can be drawn anytime before protocol start';
+          } else {
+            labBanner.style.display = 'block';
+            labText.textContent = ' \u2014 Draw baseline labs before starting NA';
+          }
+        }
+      }
+
+      // --- NA PROTOCOL PANEL ---
+      function renderNA() {
+        const panel = byId('na-protocol-panel');
+        const prompt = byId('na-start-prompt');
+        const active = byId('na-protocol-active');
+        if (!panel) return;
+
+        const blDate = getVal(LS_BASELINE_KEY);
+        const naDate = getVal(LS_NA_KEY);
+
+        if (!blDate) {
+          panel.style.display = 'none';
+          return;
+        }
+
+        panel.style.display = 'block';
+
+        if (!naDate) {
+          if (prompt) prompt.style.display = 'block';
+          if (active) active.style.display = 'none';
+          const input = byId('na-date-input');
+          if (input && !input.value) input.value = todayStr();
+          return;
+        }
+
+        if (prompt) prompt.style.display = 'none';
+        if (active) active.style.display = 'block';
+
+        const currentDay = daysBetween(naDate);
+        const clampedDay = Math.max(0, Math.min(currentDay, NA_TOTAL_DAYS));
+        const pct = Math.min(100, Math.max(0, (clampedDay / NA_TOTAL_DAYS) * 100));
+
+        const dayEl = byId('na-current-day');
+        if (dayEl) dayEl.textContent = currentDay <= 0 ? 'Pre' : (currentDay > NA_TOTAL_DAYS ? NA_TOTAL_DAYS + '+' : String(currentDay));
+
         let phase = null;
         if (currentDay <= 0) {
           phase = { num: -1, name: 'Pre-Launch', cls: 'phase-pre', fillCls: '' };
-        } else if (currentDay > TOTAL_DAYS) {
-          phase = { num: 99, name: 'Protocol Complete', cls: 'phase-done', fillCls: 'phase-done-fill' };
+        } else if (currentDay > NA_TOTAL_DAYS) {
+          phase = { num: 99, name: 'Year One Complete', cls: 'phase-done', fillCls: 'phase-done-fill' };
         } else {
-          phase = PHASES.find(p => currentDay >= p.range[0] && currentDay <= p.range[1]) || PHASES[0];
+          phase = NA_PHASES.find(p => currentDay >= p.range[0] && currentDay <= p.range[1]) || NA_PHASES[0];
         }
 
-        const badge = byId('pt-badge');
+        const badge = byId('na-badge');
         if (badge) {
           badge.className = 'phase-tracker-badge ' + phase.cls;
-          badge.textContent = phase.num === -1 ? 'Pre-Launch' : (phase.num === 99 ? 'Complete' : (phase.num === 0 ? 'Phase 0' : 'Phase ' + phase.num));
+          badge.textContent = phase.num === -1 ? 'Pre-Launch' : (phase.num === 99 ? 'Complete' : 'Phase ' + phase.num);
         }
 
-        const title = byId('pt-phase-title');
+        const title = byId('na-phase-title');
         if (title) title.textContent = phase.name;
 
-        const bar = byId('pt-bar');
+        const bar = byId('na-bar');
         if (bar) {
           bar.style.width = pct + '%';
           bar.className = 'phase-tracker-bar-fill ' + (phase.fillCls || '');
         }
 
-        // Highlight active phase label
-        for (let i = 0; i <= 3; i++) {
-          const label = byId('pt-label-' + i);
+        for (let i = 1; i <= 4; i++) {
+          const label = byId('na-label-' + i);
           if (label) {
             if (phase.num === i) label.classList.add('active-phase');
             else label.classList.remove('active-phase');
           }
         }
 
-        const startLabel = byId('pt-start-label');
-        if (startLabel) startLabel.textContent = 'Started: ' + formatDate(startDate);
+        const startLabel = byId('na-start-label');
+        if (startLabel) startLabel.textContent = 'NA started: ' + formatDate(naDate);
 
-        const endLabel = byId('pt-end-label');
-        if (endLabel) endLabel.textContent = 'Ends: ' + formatDate(addDays(startDate, TOTAL_DAYS - 1));
+        const endLabel = byId('na-end-label');
+        if (endLabel) endLabel.textContent = 'Year one ends: ' + formatDate(addDays(naDate, NA_TOTAL_DAYS - 1));
 
-        // Lab reminder banner
-        const labBanner = byId('lab-reminder-banner');
-        const labText = byId('lab-reminder-text');
+        const labBanner = byId('na-lab-banner');
+        const labText = byId('na-lab-text');
         if (labBanner && labText) {
-          if (currentDay <= 0) {
+          if (currentDay >= 76 && currentDay < 90) {
             labBanner.style.display = 'block';
-            labText.textContent = ' \u2014 Baseline labs can be drawn anytime before protocol start';
-          } else if (currentDay >= 76 && currentDay <= 120) {
-            const daysUntilLab = 90 - currentDay;
+            labText.textContent = ' \u2014 3-month follow-up labs due in ' + (90 - currentDay) + ' days';
+          } else if (currentDay >= 90 && currentDay <= 104) {
             labBanner.style.display = 'block';
-            labText.textContent = daysUntilLab > 0
-              ? ' \u2014 3-month follow-up labs due in ' + daysUntilLab + ' days'
-              : ' \u2014 3-month follow-up labs are due now';
+            labText.textContent = ' \u2014 3-month follow-up labs are due now';
+          } else if (currentDay >= 166 && currentDay < 180) {
+            labBanner.style.display = 'block';
+            labText.textContent = ' \u2014 6-month labs due in ' + (180 - currentDay) + ' days';
+          } else if (currentDay >= 180 && currentDay <= 194) {
+            labBanner.style.display = 'block';
+            labText.textContent = ' \u2014 6-month labs are due now';
+          } else if (currentDay >= 256 && currentDay < 270) {
+            labBanner.style.display = 'block';
+            labText.textContent = ' \u2014 9-month labs due in ' + (270 - currentDay) + ' days';
+          } else if (currentDay >= 270 && currentDay <= 284) {
+            labBanner.style.display = 'block';
+            labText.textContent = ' \u2014 9-month labs are due now';
+          } else if (currentDay >= 351 && currentDay < 365) {
+            labBanner.style.display = 'block';
+            labText.textContent = ' \u2014 12-month labs due in ' + (365 - currentDay) + ' days';
+          } else if (currentDay >= 365) {
+            labBanner.style.display = 'block';
+            labText.textContent = ' \u2014 12-month / year-one evaluation labs are due now';
           } else {
             labBanner.style.display = 'none';
           }
         }
+
+        const milestones = byId('na-milestones');
+        if (milestones) {
+          const items = [
+            { day: 90, label: '3-mo labs', done: currentDay >= 90 },
+            { day: 180, label: '6-mo check', done: currentDay >= 180 },
+            { day: 270, label: '9-mo check', done: currentDay >= 270 },
+            { day: 365, label: '12-mo eval', done: currentDay >= 365 }
+          ];
+          milestones.innerHTML = items.map(m => {
+            const cls = m.done ? 'milestone-done' : (currentDay >= m.day - 14 ? 'milestone-soon' : '');
+            return `<span class="milestone-marker ${cls}">${m.label}</span>`;
+          }).join('');
+        }
       }
 
-      window.setProtocolStartDate = function() {
-        const input = byId('phase-tracker-date-input');
+      // --- User actions ---
+      window.setBaselineStartDate = function() {
+        const input = byId('baseline-date-input');
         if (!input || !input.value) { alert('Please select a start date.'); return; }
-        setStartDateLocal(input.value);
-        saveToFirestore(input.value);
+        setVal(LS_BASELINE_KEY, input.value);
+        saveToFirestore({ baselineStartDate: input.value });
         render();
       };
 
-      window.resetProtocolStartDate = function() {
-        if (!confirm('Reset your protocol start date? This only resets the tracker, not your logged data.')) return;
-        removeStartDateLocal();
-        removeFromFirestore();
+      window.setNAStartDate = function() {
+        const input = byId('na-date-input');
+        if (!input || !input.value) { alert('Please select a date.'); return; }
+        if (!confirm('Start the NA protocol? This locks your baseline period.')) return;
+        setVal(LS_NA_KEY, input.value);
+        saveToFirestore({ naStartDate: input.value });
         render();
       };
+
+      window.resetBaselineDate = function() {
+        if (!confirm('Reset baseline start date? This only resets the tracker, not your logged data.')) return;
+        removeVal(LS_BASELINE_KEY);
+        removeVal(LS_NA_KEY);
+        removeFieldsFromFirestore(['baselineStartDate', 'naStartDate', 'startDate']);
+        render();
+      };
+
+      window.resetNADate = function() {
+        if (!confirm('Reset NA start date? Your baseline data will be preserved.')) return;
+        removeVal(LS_NA_KEY);
+        removeFieldsFromFirestore(['naStartDate']);
+        render();
+      };
+
+      window.setProtocolStartDate = window.setBaselineStartDate;
+      window.resetProtocolStartDate = window.resetBaselineDate;
 
       window.showRoadmapModal = function() {
         const m = byId('roadmap-modal');
@@ -1542,7 +1725,7 @@ Conceptual Foundation and Mechanistic Framework
 <span class="report-icon">🧑‍👩‍👧‍👦</span><div><div>AMN Protocol – Family Overview</div><div class="report-sub">Plain-language overview</div></div>
 </a>
 <a class="report-link" href="docs/amn-clinical-reference.pdf" rel="noopener" target="_blank">
-<span class="report-icon">🩺</span><div><div>AMN Protocol – Clinical Reference</div><div class="report-sub">Technical reference</div></div>
+<span class="report-icon">🩺</span><div><div>AMN Protocol – Clinical Reference</div><div class="report-sub">Technical overview</div></div>
 </a>
 <a class="report-link" href="docs/functional-recovery-amn.pdf" rel="noopener" target="_blank">
 <span class="report-icon">🧠</span><div><div>A Phenotype-Specific Framework for Functional Change in AMN</div><div class="report-sub">Case framework</div></div>
@@ -1577,107 +1760,167 @@ Conceptual Foundation and Mechanistic Framework
 </header>
 <p id="date-display-p" style="color:var(--text-secondary); margin-bottom:20px; font-size:0.9rem;"></p>
 
-<!-- 120-Day Protocol Progress Tracker -->
-<div class="phase-tracker" id="phase-tracker">
-<div id="phase-tracker-setup" style="display:none;">
+<!-- Baseline Testing Panel -->
+<div class="phase-tracker" id="baseline-panel">
+<div id="baseline-setup">
   <div style="text-align:center; margin-bottom:8px;">
-    <span style="font-size:0.9rem; font-weight:700; color:#ccc;">Set Protocol Start Date</span>
+    <span style="font-size:0.9rem; font-weight:700; color:#ccc;">Set Baseline Start Date</span>
   </div>
   <div style="font-size:0.8rem; color:var(--text-secondary); text-align:center; margin-bottom:12px; line-height:1.4;">
-    Pick the date you begin (or began) the 120-day protocol run (30-day baseline + 90-day protocol).
+    Pick the date you begin (or began) baseline observation &#8212; no NA during this period. Baseline length is flexible.
   </div>
-  <input type="date" id="phase-tracker-date-input" style="margin-bottom:10px;"/>
-  <button class="phase-tracker-start-btn" id="phase-tracker-set-btn" type="button" onclick="window.setProtocolStartDate()">Lock Start Date</button>
+  <input type="date" id="baseline-date-input" style="margin-bottom:10px;"/>
+  <button class="phase-tracker-start-btn" type="button" onclick="window.setBaselineStartDate()">Lock Baseline Start Date</button>
 </div>
-<div id="phase-tracker-active" style="display:none;">
+<div id="baseline-active" style="display:none;">
   <div class="phase-tracker-header">
-    <div class="phase-tracker-day">Day <span id="pt-current-day">0</span> <span class="of-total">of 120</span></div>
-    <div class="phase-tracker-badge phase-1" id="pt-badge">Phase 1</div>
+    <div class="phase-tracker-day">Day <span id="bl-current-day">0</span></div>
+    <div class="phase-tracker-badge phase-0">Baseline</div>
   </div>
-  <div class="phase-tracker-title" id="pt-phase-title">Tolerability &amp; Baseline Lock</div>
-  <div class="phase-tracker-bar-bg">
-    <div class="phase-tracker-bar-fill" id="pt-bar" style="width:0%;"></div>
-  </div>
-  <div class="phase-tracker-phases">
-    <span id="pt-label-0">Phase 0 (1–30)</span>
-    <span id="pt-label-1">Phase 1 (31–60)</span>
-    <span id="pt-label-2">Phase 2 (61–90)</span>
-    <span id="pt-label-3">Phase 3 (91–120)</span>
-  </div>
-  <div class="phase-tracker-meta">
-    <span id="pt-start-label">Started: —</span>
-    <span id="pt-end-label">Ends: —</span>
-  </div>
-  <div id="lab-reminder-banner" style="display:none; margin-top:10px; padding:10px 14px; border-radius:10px; background:#2a1a3e; border:1px solid #BF5AF2; font-size:0.85rem; color:#ddd;">
+  <div class="phase-tracker-title">Baseline Observation &#8212; No NA</div>
+  <div id="bl-lab-banner" style="display:none; margin-top:10px; padding:10px 14px; border-radius:10px; background:#2a1a3e; border:1px solid #BF5AF2; font-size:0.85rem; color:#ddd;">
     <span style="color:#BF5AF2; font-weight:700;">Lab Panel</span>
-    <span id="lab-reminder-text"></span>
+    <span id="bl-lab-text"></span>
+  </div>
+  <div class="phase-tracker-meta" style="margin-top:8px;">
+    <span id="bl-start-label">Started: &#8212;</span>
   </div>
   <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
-    <button class="phase-tracker-info-btn" type="button" onclick="window.showRoadmapModal()">View 120-Day Roadmap</button>
-    <button class="phase-tracker-reset" id="phase-tracker-reset-btn" type="button" onclick="window.resetProtocolStartDate()" style="margin-top:0;">Reset start date</button>
+    <button class="phase-tracker-info-btn" type="button" onclick="window.showRoadmapModal()">View Year-One Roadmap</button>
+    <button class="phase-tracker-reset" type="button" onclick="window.resetBaselineDate()" style="margin-top:0;">Reset baseline</button>
+  </div>
+</div>
+<div id="baseline-complete" style="display:none;">
+  <div class="baseline-complete-summary"><span class="check">&#10003;</span> <span id="baseline-summary">Baseline completed</span></div>
+  <div style="display:flex; align-items:center; gap:10px; margin-top:6px;">
+    <button class="phase-tracker-reset" type="button" onclick="window.resetBaselineDate()" style="margin-top:0;">Reset baseline</button>
   </div>
 </div>
 </div>
 
-<!-- 120-Day Roadmap Modal -->
+<!-- NA Protocol Panel (365-Day Year One) -->
+<div class="phase-tracker" id="na-protocol-panel" style="display:none;">
+<div id="na-start-prompt">
+  <div style="text-align:center; margin-bottom:8px;">
+    <span style="font-size:0.9rem; font-weight:700; color:#ccc;">Start NA Protocol</span>
+  </div>
+  <div style="font-size:0.8rem; color:var(--text-secondary); text-align:center; margin-bottom:12px; line-height:1.4;">
+    Ready to begin Nervonic Acid? Pick the date you start (or started) NA supplementation. This locks your baseline period.
+  </div>
+  <input type="date" id="na-date-input" style="margin-bottom:10px;"/>
+  <button class="phase-tracker-start-btn" type="button" onclick="window.setNAStartDate()">Lock NA Start Date</button>
+</div>
+<div id="na-protocol-active" style="display:none;">
+  <div class="phase-tracker-header">
+    <div class="phase-tracker-day">Day <span id="na-current-day">0</span> <span class="of-total">of 365</span></div>
+    <div class="phase-tracker-badge phase-1" id="na-badge">Phase 1</div>
+  </div>
+  <div class="phase-tracker-title" id="na-phase-title">Tolerability &amp; Baseline Lock</div>
+  <div class="phase-tracker-bar-bg">
+    <div class="phase-tracker-bar-fill" id="na-bar" style="width:0%;"></div>
+  </div>
+  <div class="phase-tracker-phases">
+    <span id="na-label-1">P1 (1&#8211;30)</span>
+    <span id="na-label-2">P2 (31&#8211;90)</span>
+    <span id="na-label-3">P3 (91&#8211;270)</span>
+    <span id="na-label-4">P4 (271&#8211;365)</span>
+  </div>
+  <div class="milestone-row" id="na-milestones"></div>
+  <div class="phase-tracker-meta">
+    <span id="na-start-label">NA started: &#8212;</span>
+    <span id="na-end-label">Year one ends: &#8212;</span>
+  </div>
+  <div id="na-lab-banner" style="display:none; margin-top:10px; padding:10px 14px; border-radius:10px; background:#2a1a3e; border:1px solid #BF5AF2; font-size:0.85rem; color:#ddd;">
+    <span style="color:#BF5AF2; font-weight:700;">Lab Panel</span>
+    <span id="na-lab-text"></span>
+  </div>
+  <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
+    <button class="phase-tracker-info-btn" type="button" onclick="window.showRoadmapModal()">View Year-One Roadmap</button>
+    <button class="phase-tracker-reset" type="button" onclick="window.resetNADate()" style="margin-top:0;">Reset NA date</button>
+  </div>
+</div>
+</div>
+
+<!-- Year-One Roadmap Modal -->
 <div id="roadmap-modal" onclick="if(event.target===this)window.hideRoadmapModal()">
 <div class="roadmap-card">
-<h2>The 120-Day AMN Protocol Roadmap</h2>
-<p>A structured 120-day observation protocol: 30 days of baseline observation without Nervonic Acid (NA), followed by a 90-day treatment protocol. This design provides a clean comparison point so any changes after introducing NA can be measured against your true baseline.</p>
+<h2>The AMN Protocol Roadmap &#8212; Year One</h2>
+<p>A structured observation protocol: a flexible baseline period without Nervonic Acid (NA), followed by a 365-day NA treatment protocol. The baseline period provides a clean comparison point so any changes after introducing NA can be measured against your true pre-treatment data.</p>
 
 <div class="rm-section">
-<h3 style="color:#FFD60A;">Phase 0: Baseline Observation &#8212; No NA (Days 1&#8211;30)</h3>
-<p><strong>Goal:</strong> Establish a clean 30-day baseline <em>without</em> Nervonic Acid (NA) supplementation. This period captures your natural symptom patterns, vitals, and functional performance so future changes can be measured against a true pre-treatment baseline.</p>
+<h3 style="color:#FFD60A;">Baseline Observation &#8212; No NA (Variable Length)</h3>
+<p><strong>Goal:</strong> Establish a clean baseline <em>without</em> Nervonic Acid (NA) supplementation. This period captures your natural symptom patterns, vitals, and functional performance so future changes can be measured against a true pre-treatment baseline.</p>
 <ul>
 <li><strong>No NA supplementation:</strong> Do not begin Nervonic Acid during this phase. Continue any other existing supplements as usual&#8212;the goal is to isolate NA as the variable introduced in Phase 1.</li>
 <li><strong>Daily logging:</strong> Record energy, cognition, gait, pain, mood, sleep quality, and any adverse or positive events every day. Consistency here is critical&#8212;this is your comparison dataset.</li>
 <li><strong>Vitals:</strong> Track weight, blood pressure, heart rate, and temperature as available.</li>
-<li><strong>Baseline labs:</strong> If possible, draw baseline bloodwork (VLCFA, cortisol, inflammatory markers, standard metabolic panel) during this window.</li>
-<li><strong>Functional tests:</strong> Complete at least one timed functional test (e.g., 6MW, 5x sit-to-stand) to anchor physical performance baseline.</li>
-<li><strong>Confounder tracking:</strong> Log sleep quality, stress, diet changes, and any other factors that could influence symptoms. This helps control for noise when comparing against later phases.</li>
+<li><strong>Baseline labs:</strong> Draw the full baseline panel before starting NA:
+<ul style="margin-top:6px; margin-bottom:2px;">
+<li>Hematology: CBC</li>
+<li>Liver: AST, ALT, ALP, Bilirubin</li>
+<li>Kidney: Creatinine, eGFR</li>
+<li>Electrolytes: Sodium, Potassium, Chloride, Bicarbonate</li>
+<li>Lipids: Total cholesterol, LDL, HDL, Triglycerides</li>
+<li>Disease marker: VLCFA panel</li>
+<li><em>Optional:</em> RBC fatty acid profile</li>
+</ul></li>
+<li><strong>Functional tests:</strong> Begin biweekly timed functional tests (e.g., 6MW, 5x sit-to-stand) to establish a performance baseline with multiple data points.</li>
+<li><strong>Confounder tracking:</strong> Log sleep quality, stress, diet changes, and any other factors that could influence symptoms.</li>
 </ul>
-<p><strong>Exit criteria:</strong> 30 days of consistent logging without NA. Baseline data locked. Ready to introduce Nervonic Acid in Phase 1.</p>
+<p><strong>Exit criteria:</strong> Consistent baseline logging without NA. Baseline labs drawn. Ready to introduce Nervonic Acid.</p>
 </div>
 
 <div class="rm-section">
-<h3 class="rm-p1">Phase 1: Tolerability &amp; NA Introduction (Days 31&#8211;60)</h3>
-<p><strong>Goal:</strong> Introduce Nervonic Acid (NA) and confirm the full supplement stack is well-tolerated. Compare early data against Phase 0 baseline.</p>
+<h3 class="rm-p1">Phase 1: Tolerability &amp; NA Introduction (Days 1&#8211;30)</h3>
+<p><strong>Goal:</strong> Introduce Nervonic Acid (NA) and confirm the full supplement stack is well-tolerated. Compare early data against baseline.</p>
 <ul>
 <li><strong>Begin NA supplementation:</strong> Start Nervonic Acid at the planned dose. Log dose, timing, and any immediate reactions.</li>
-<li><strong>Daily logging:</strong> Continue recording all domains. Watch for any changes from your Phase 0 baseline patterns.</li>
-<li><strong>Vitals:</strong> Track weight, blood pressure, heart rate, and temperature as available.</li>
+<li><strong>Daily logging:</strong> Continue recording all domains. Watch for any changes from your baseline patterns.</li>
 <li><strong>Supplement adherence:</strong> Log each supplement taken (dose, timing). Mark any missed doses or changes.</li>
-<li><strong>Adverse event capture:</strong> Flag anything new or unusual, even if minor. Compare against Phase 0&#8212;is this new since starting NA?</li>
-<li><strong>Functional tests:</strong> Repeat the same timed tests from Phase 0 for early comparison.</li>
+<li><strong>Adverse event capture:</strong> Flag anything new or unusual, even if minor. Compare against baseline&#8212;is this new since starting NA?</li>
+<li><strong>Functional tests:</strong> Continue biweekly timed tests. Compare early trends against baseline.</li>
 </ul>
 <p><strong>Exit criteria:</strong> 30 days on NA with consistent logging. No unresolved safety concerns. Tolerability confirmed.</p>
 </div>
 
 <div class="rm-section">
-<h3 class="rm-p2">Phase 2: Signal Detection (Days 61&#8211;90)</h3>
-<p><strong>Goal:</strong> With tolerability established, begin watching for any early treatment signals&#8212;positive or negative&#8212;across subjective and objective domains, compared against Phase 0 baseline.</p>
+<h3 class="rm-p2">Phase 2: Monitoring &amp; Follow-up Labs (Days 31&#8211;90)</h3>
+<p><strong>Goal:</strong> With tolerability established, watch for early treatment signals and complete the critical 3-month lab panel.</p>
 <ul>
 <li><strong>Continue daily logging:</strong> Same domains. Consistency matters&#8212;the value is in the trend line, not any single day.</li>
-<li><strong>Pattern review:</strong> At Day 75 and Day 90, review the data for emerging trends vs Phase 0. Is energy trending up? Gait stability improving or declining? Pain shifting?</li>
-<li><strong>Supplement adjustments:</strong> If Phase 1 was clean, consider any planned dose adjustments or additions per the protocol plan. Log changes carefully.</li>
-<li><strong>Repeat functional tests:</strong> Run the same timed tests for comparison against Phase 0 and Phase 1.</li>
-<li><strong>Mid-protocol labs:</strong> If feasible, repeat key bloodwork (especially VLCFA) around Day 75&#8211;90 to look for early metabolic signal.</li>
+<li><strong>Pattern review:</strong> Review the data for emerging trends vs baseline. Is energy trending up? Gait stability improving or declining? Pain shifting?</li>
+<li><strong>Supplement adjustments:</strong> If Phase 1 was clean, consider any planned dose adjustments. Log changes carefully.</li>
+<li><strong>Functional tests:</strong> Continue biweekly schedule. Compare against baseline and Phase 1 trends.</li>
+<li><strong>3-month labs (~Day 90):</strong> Repeat the full panel (CBC, liver, kidney, electrolytes, lipids, VLCFA). This is your first objective measurement of metabolic response to NA.</li>
 </ul>
-<p><strong>Exit criteria:</strong> 60 days on NA (90 total). Initial signal assessment documented. Any concerning trends flagged for review.</p>
+<p><strong>Exit criteria:</strong> 90 days on NA. 3-month labs drawn. Initial signal assessment documented.</p>
 </div>
 
 <div class="rm-section">
-<h3 class="rm-p3">Phase 3: Confirmation &amp; Passenger Decision (Days 91&#8211;120)</h3>
-<p><strong>Goal:</strong> Confirm or refute early signals. Build enough evidence to make an informed go/no-go decision on continuing, modifying, or stopping the protocol.</p>
+<h3 class="rm-p3">Phase 3: Maintenance (Days 91&#8211;270)</h3>
+<p><strong>Goal:</strong> Sustained daily logging through the steady-state period. Monitor for gradual trends, periodic lab checkpoints at 6 and 9 months.</p>
 <ul>
-<li><strong>Continue daily logging:</strong> Push through to 120 days. The full dataset is the deliverable.</li>
-<li><strong>Deep trend analysis:</strong> Compare Phase 2&#8211;3 averages against Phase 0 baseline (no NA). This is the key comparison&#8212;what changed after introducing NA?</li>
-<li><strong>Final functional tests:</strong> Complete the same timed tests one more time. Four data points (Phase 0, 1, 2, 3) create a robust trend line.</li>
-<li><strong>End-of-protocol labs:</strong> Draw final bloodwork. Compare against Phase 0 baseline for objective biomarker movement.</li>
-<li><strong>Export &amp; review:</strong> Generate the full 120-day clinical export. Prepare a summary for your medical team if applicable.</li>
-<li><strong>Decision point:</strong> Based on the full evidence comparing NA vs no-NA periods: Continue the current protocol? Modify dosing? Add or remove supplements? Stop and reassess? The data speaks.</li>
+<li><strong>Continue daily logging:</strong> Maintain consistency. The long-term dataset is the deliverable.</li>
+<li><strong>Trend monitoring:</strong> Periodically review rolling averages against baseline. Look for sustained directional changes rather than daily noise.</li>
+<li><strong>6-month labs (~Day 180):</strong> Repeat full panel. Compare against baseline and 3-month values for trajectory.</li>
+<li><strong>9-month labs (~Day 270):</strong> Repeat full panel. Three post-NA lab panels now provide a meaningful trend line.</li>
+<li><strong>Functional tests:</strong> Continue biweekly schedule throughout maintenance.</li>
 </ul>
-<p><strong>Exit criteria:</strong> 120 days complete. Full dataset exported. Decision documented.</p>
+<p><strong>Exit criteria:</strong> 270 days on NA. 6-month and 9-month labs complete. Stable trend data accumulated.</p>
+</div>
+
+<div class="rm-section">
+<h3 style="color:#FF9F0A;">Phase 4: Dose Evaluation Window (Days 271&#8211;365)</h3>
+<p><strong>Goal:</strong> Complete year one. Draw 12-month labs. Build enough evidence to make an informed decision on year two.</p>
+<ul>
+<li><strong>Continue daily logging:</strong> Push through to 365 days.</li>
+<li><strong>Deep trend analysis:</strong> Compare year-one averages against baseline (no NA). This is the key comparison&#8212;what changed after introducing NA?</li>
+<li><strong>12-month labs:</strong> Repeat full panel. Compare against all prior panels for objective biomarker trajectory over the full year.</li>
+<li><strong>Functional tests:</strong> Continue biweekly schedule. Year-end data provides a comprehensive trend line.</li>
+<li><strong>Export &amp; review:</strong> Generate the full year-one clinical export. Prepare a summary for your medical team if applicable.</li>
+<li><strong>Decision point:</strong> Based on the full evidence: Continue into year two? Modify dosing? Add or remove supplements? Stop and reassess? The data speaks.</li>
+</ul>
+<p><strong>Exit criteria:</strong> 365 days complete. Full dataset exported. Year-two decision documented.</p>
 </div>
 
 <button class="rm-close-btn" type="button" onclick="window.hideRoadmapModal()">Close</button>
@@ -1686,22 +1929,24 @@ Conceptual Foundation and Mechanistic Framework
 
 <form id="patrick-form">
 <details style="margin-bottom: 20px; margin-top: 0;">
-<summary><div class="summary-text">Protocol Context<br/>&amp; References</div></summary>
+<summary><div class="summary-text">Protocol Context &amp; References</div>
+<div style="font-size:0.7rem; color:#8E8E93; font-weight:400; margin-top:4px; text-align:center;">AMN Mechanism-Based Support Framework</div>
+</summary>
 <div class="folder-content">
 <a class="report-link" href="docs/amn-family-overview.pdf" rel="noopener" target="_blank">
-<span class="report-icon">🧑‍👩‍👧‍👦</span><div><div>AMN Protocol – Family Overview</div></div>
+<span class="report-icon">👨‍👩‍👧</span><div><div>Family Overview</div><div class="report-sub">Plain-language overview</div></div>
 </a>
 <a class="report-link" href="docs/amn-clinical-reference.pdf" rel="noopener" target="_blank">
-<span class="report-icon">🩺</span><div><div>AMN Protocol – Clinical Reference</div></div>
+<span class="report-icon">🩺</span><div><div>Clinical Reference</div><div class="report-sub">Technical overview</div></div>
 </a>
 <a class="report-link" href="docs/functional-recovery-amn.pdf" rel="noopener" target="_blank">
-<span class="report-icon">🧠</span><div><div>Functional Framework</div></div>
+<span class="report-icon">🧠</span><div><div>Functional Recovery Framework</div><div class="report-sub">Phenotype-specific rationale</div></div>
 </a>
 <a class="report-link" href="docs/protocol-governance-and-escalation-framework.pdf" rel="noopener" target="_blank">
-<span class="report-icon">🛡️</span><div><div>Protocol Governance &amp; Escalation</div><div class="report-sub">Safety thresholds and decision logic</div></div>
+<span class="report-icon">🛡️</span><div><div>Dose Escalation Governance Protocol</div><div class="report-sub">Decision criteria and structural safeguards</div></div>
 </a>
 <a class="report-link secondary" href="docs/full-governence-risk-containment-framework.pdf" rel="noopener" target="_blank">
-<span class="report-icon">📄</span><div><div>Full Governance Risk Containment Framework</div><div class="report-sub">Companion document (expanded)</div></div>
+<span class="report-icon">📄</span><div><div>Self-Experimentation Risk Containment Framework</div><div class="report-sub">Governance structure for protocol discipline</div></div>
 </a>
 <a class="report-link" href="https://elastic-amn-diagrams.netlify.app/" rel="noopener" target="_blank">
 <span class="report-icon">🔍</span><div><div>Functional Outcome Interpretation</div><div class="report-sub">Interactive logic tool</div></div>
