@@ -2134,6 +2134,9 @@ body.modal-open {
 <body>
 <div id="report-view"></div>
 
+<!-- Fixed stress test link — visible on every screen -->
+<a href="stress-test.html" id="stress-test-fab" style="position:fixed; top:12px; right:12px; z-index:9999; background:rgba(255,69,58,0.15); border:1px solid var(--danger-red); color:var(--danger-red); font-size:0.72rem; font-weight:700; text-decoration:none; letter-spacing:0.06em; text-transform:uppercase; padding:5px 10px; border-radius:20px; backdrop-filter:blur(6px);">⚡ Stress Test</a>
+
 <!-- FIX #4: Auth overlay now uses a proper HTML form for iOS autofill reliability -->
 <div id="auth-overlay">
 <div id="auth-card">
@@ -2716,8 +2719,13 @@ Persistent background information about your condition. Written once, updated as
 <div class="nav-links-inner">
 <a href="stress-test.html" style="color:#ef4444;">⚡ Stress Test</a>
 <span class="nav-dot">&middot;</span>
-<a href="90-day-test.html">120-Day Loader</a>
-</div>
+<button type="button" onclick="window.openBaselineModal()">My Baseline</button>
+<span class="nav-dot">&middot;</span>
+<button type="button" onclick="window.showRoadmapModal()">Year-One Roadmap</button>
+<span class="nav-dot">&middot;</span>
+<button type="button" onclick="window.location.href='stress-test.html'" style="color:var(--danger-red); font-weight:700;">⚡ Stress Test</button>
+<span class="nav-dot">&middot;</span>
+<button type="button" onclick="window.location.href='120-day-test.html'" style="color:var(--accent-blue);">120-Day Loader</button>
 </div>
 
 <div id="log-date-nav" style="display:flex; align-items:center; gap:8px; margin-bottom:14px; padding:10px 14px; background:var(--card-bg); border:1px solid #333; border-radius:12px;">
