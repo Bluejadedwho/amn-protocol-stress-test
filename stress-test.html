@@ -1464,17 +1464,8 @@ body.modal-open {
 
       if(title) title.textContent = `Export ${target?.label || 'History'} (PDF)`;
       const today = new Date();
-      let startD;
-      try {
-        const protocolStart = localStorage.getItem('amn_protocol_start_date');
-        if (protocolStart) {
-          startD = new Date(protocolStart + 'T00:00:00');
-        }
-      } catch(e) {}
-      if (!startD || isNaN(startD.getTime())) {
-        startD = new Date();
-        startD.setDate(today.getDate() - 119);
-      }
+      const startD = new Date();
+      startD.setDate(today.getDate() - 119);
       if(start) start.value = toISODate(startD);
       if(end) end.value = toISODate(today);
       if(order && !order.value) order.value = 'desc';
@@ -2714,7 +2705,7 @@ Persistent background information about your condition. Written once, updated as
 
 <div class="nav-links-row">
 <div class="nav-links-inner">
-<span style="color:#ef4444; font-size:0.78rem; font-weight:600;">⚡ Stress Test</span>
+<a href="index.html" style="color:#ef4444; font-size:0.78rem; font-weight:600; text-decoration:none;">⚡ Stress Test</a>
 <span class="nav-dot">&middot;</span>
 <a href="120-day-test.html">120-Day Loader</a>
 </div>
