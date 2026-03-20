@@ -2716,7 +2716,7 @@ Persistent background information about your condition. Written once, updated as
 <div class="nav-links-inner">
 <span style="color:#ef4444; font-size:0.78rem; font-weight:600;">⚡ Stress Test</span>
 <span class="nav-dot">&middot;</span>
-<a href="90-day-test.html">120-Day Loader</a>
+<a href="120-day-test.html">120-Day Loader</a>
 </div>
 </div>
 
@@ -3482,9 +3482,12 @@ Persistent background information about your condition. Written once, updated as
       auth.onAuthStateChanged((user) => {
         window.CURRENT_UID = user?.uid || null;
         showAuthOverlay(!window.CURRENT_UID);
-        // Sync phase tracker start date from Firestore on login
-        if (user && typeof window.__phaseTrackerSyncFromFirestore === 'function') {
-          window.__phaseTrackerSyncFromFirestore();
+        if (user) {
+          // Already signed in — auto-skip the splash screen
+          window.enterApp();
+          if (typeof window.__phaseTrackerSyncFromFirestore === 'function') {
+            window.__phaseTrackerSyncFromFirestore();
+          }
         }
       });
 
