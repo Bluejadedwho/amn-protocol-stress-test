@@ -4218,12 +4218,20 @@ Persistent background information about your condition. Written once, updated as
             return { label, count: cnt, pct: n ? Math.round(cnt / n * 100) : 0 };
           }).filter(r => r.count > 0);
 
-          // Functional test delta (first vs last)
+          // Functional test delta (first vs last) + full timeline
           const allTests = chronoLogs.flatMap(l => Array.isArray(l.functional_tests) ? l.functional_tests : [])
             .filter(t => t && t.test_date)
             .sort((a,b) => String(a.test_date).localeCompare(String(b.test_date)));
           const firstTest = allTests[0] || null;
           const lastTest  = allTests.length > 1 ? allTests[allTests.length - 1] : null;
+
+          // Lab comparison: first log with labs (baseline) vs last log with labs (3-month)
+          const logsWithLabs = chronoLogs.filter(l => {
+            const lb = l.lab || l.periodic_labs || {};
+            return lb && Object.values(lb).some(v => v !== null && v !== undefined && v !== "");
+          });
+          const baselineLabLog = logsWithLabs[0] || null;
+          const followupLabLog = logsWithLabs.length > 1 ? logsWithLabs[logsWithLabs.length - 1] : null;
 
           const _testDelta = (a, b) => {
             if (a === null || a === undefined || b === null || b === undefined) return "";
@@ -4296,41 +4304,96 @@ Persistent background information about your condition. Written once, updated as
               </tr>`).join("")}
             </table>` : ""}
 
-            ${firstTest ? `
-            <!-- FUNCTIONAL TEST DELTA -->
-            <div style="font-size:12px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Functional Tests${lastTest ? " — First vs Last" : ""}</div>
-            <table style="width:100%; border-collapse:collapse; font-size:12px;">
+            <!-- FUNCTIONAL TEST TIMELINE (biweekly sessions) -->
+            <div style="font-size:12px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Functional Tests — Biweekly Schedule (${allTests.length} session${allTests.length !== 1 ? "s" : ""})</div>
+            ${allTests.length > 0 ? `
+            <table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:8px;">
               <tr style="background:#e8e8f0; font-weight:700;">
-                <td style="padding:5px 8px;">Measure</td>
-                <td style="padding:5px 8px; text-align:center;">${firstTest.test_date}</td>
-                ${lastTest ? `<td style="padding:5px 8px; text-align:center;">${lastTest.test_date}</td><td style="padding:5px 8px; text-align:center;">Δ</td>` : ""}
+                <td style="padding:4px 8px;">Date</td>
+                <td style="padding:4px 8px; text-align:center;">6MW Dist (m)</td>
+                <td style="padding:4px 8px; text-align:center;">6MW Laps</td>
+                <td style="padding:4px 8px; text-align:center;">Breaks</td>
+                <td style="padding:4px 8px; text-align:center;">STS Time (s)</td>
+                <td style="padding:4px 8px; text-align:center;">STS Reps</td>
+                <td style="padding:4px 8px; text-align:center;">Time of Day</td>
               </tr>
-              <tr style="background:#fff;">
-                <td style="padding:5px 8px;">6MW Distance (m)</td>
-                <td style="padding:5px 8px; text-align:center;">${vr(firstTest.six_minute_walk?.calculated_distance_m || firstTest.six_minute_walk?.distance_m)}</td>
-                ${lastTest ? `<td style="padding:5px 8px; text-align:center;">${vr(lastTest.six_minute_walk?.calculated_distance_m || lastTest.six_minute_walk?.distance_m)}</td><td style="padding:5px 8px; text-align:center; font-weight:700;">${_testDelta(firstTest.six_minute_walk?.calculated_distance_m || firstTest.six_minute_walk?.distance_m, lastTest.six_minute_walk?.calculated_distance_m || lastTest.six_minute_walk?.distance_m)}</td>` : ""}
-              </tr>
-              <tr style="background:#f5f5f8;">
-                <td style="padding:5px 8px;">6MW Laps</td>
-                <td style="padding:5px 8px; text-align:center;">${vr(firstTest.six_minute_walk?.laps)}</td>
-                ${lastTest ? `<td style="padding:5px 8px; text-align:center;">${vr(lastTest.six_minute_walk?.laps)}</td><td style="padding:5px 8px; text-align:center; font-weight:700;">${_testDelta(firstTest.six_minute_walk?.laps, lastTest.six_minute_walk?.laps)}</td>` : ""}
-              </tr>
-              <tr style="background:#fff;">
-                <td style="padding:5px 8px;">6MW Rest breaks</td>
-                <td style="padding:5px 8px; text-align:center;">${vr(firstTest.six_minute_walk?.rest_breaks_count)}</td>
-                ${lastTest ? `<td style="padding:5px 8px; text-align:center;">${vr(lastTest.six_minute_walk?.rest_breaks_count)}</td><td style="padding:5px 8px; text-align:center; font-weight:700;">${_testDelta(firstTest.six_minute_walk?.rest_breaks_count, lastTest.six_minute_walk?.rest_breaks_count)}</td>` : ""}
-              </tr>
-              <tr style="background:#f5f5f8;">
-                <td style="padding:5px 8px;">STS Time (s)</td>
-                <td style="padding:5px 8px; text-align:center;">${vr(firstTest.sit_to_stand_5x?.time_seconds)}</td>
-                ${lastTest ? `<td style="padding:5px 8px; text-align:center;">${vr(lastTest.sit_to_stand_5x?.time_seconds)}</td><td style="padding:5px 8px; text-align:center; font-weight:700;">${_testDelta(firstTest.sit_to_stand_5x?.time_seconds, lastTest.sit_to_stand_5x?.time_seconds)}</td>` : ""}
-              </tr>
-              <tr style="background:#fff;">
-                <td style="padding:5px 8px;">STS Reps completed</td>
-                <td style="padding:5px 8px; text-align:center;">${vr(firstTest.sit_to_stand_5x?.reps_completed)}</td>
-                ${lastTest ? `<td style="padding:5px 8px; text-align:center;">${vr(lastTest.sit_to_stand_5x?.reps_completed)}</td><td style="padding:5px 8px; text-align:center; font-weight:700;">${_testDelta(firstTest.sit_to_stand_5x?.reps_completed, lastTest.sit_to_stand_5x?.reps_completed)}</td>` : ""}
-              </tr>
-            </table>` : `<div style="font-size:12px; color:#999;">No functional tests recorded in this period.</div>`}
+              ${allTests.map((t, i) => {
+                const sw = t.six_minute_walk || {};
+                const sts = t.sit_to_stand_5x || {};
+                const isFirst = i === 0;
+                const isLast = i === allTests.length - 1 && allTests.length > 1;
+                const rowBg = isFirst ? "#e6f4ea" : isLast ? "#e8f0fe" : (i % 2 === 0 ? "#fff" : "#f5f5f8");
+                const label = isFirst ? " ★ baseline" : isLast ? " ★ final" : "";
+                return `<tr style="background:${rowBg};">
+                  <td style="padding:4px 8px; font-weight:${isFirst||isLast?"700":"400"};">${t.test_date}${label}</td>
+                  <td style="padding:4px 8px; text-align:center;">${vr(sw.calculated_distance_m || sw.distance_m)}</td>
+                  <td style="padding:4px 8px; text-align:center;">${vr(sw.laps)}</td>
+                  <td style="padding:4px 8px; text-align:center;">${vr(sw.rest_breaks_count)}</td>
+                  <td style="padding:4px 8px; text-align:center;">${vr(sts.time_seconds)}</td>
+                  <td style="padding:4px 8px; text-align:center;">${vr(sts.reps_completed)}</td>
+                  <td style="padding:4px 8px; text-align:center; color:#888;">${vr(t.time_of_day)}</td>
+                </tr>`;
+              }).join("")}
+              ${lastTest ? `<tr style="background:#f0f4ff; font-weight:700; border-top:2px solid #aaa;">
+                <td style="padding:4px 8px;">Δ First → Last</td>
+                <td style="padding:4px 8px; text-align:center;">${_testDelta(firstTest.six_minute_walk?.calculated_distance_m || firstTest.six_minute_walk?.distance_m, lastTest.six_minute_walk?.calculated_distance_m || lastTest.six_minute_walk?.distance_m)}</td>
+                <td style="padding:4px 8px; text-align:center;">${_testDelta(firstTest.six_minute_walk?.laps, lastTest.six_minute_walk?.laps)}</td>
+                <td style="padding:4px 8px; text-align:center;">${_testDelta(firstTest.six_minute_walk?.rest_breaks_count, lastTest.six_minute_walk?.rest_breaks_count)}</td>
+                <td style="padding:4px 8px; text-align:center;">${_testDelta(firstTest.sit_to_stand_5x?.time_seconds, lastTest.sit_to_stand_5x?.time_seconds)}</td>
+                <td style="padding:4px 8px; text-align:center;">${_testDelta(firstTest.sit_to_stand_5x?.reps_completed, lastTest.sit_to_stand_5x?.reps_completed)}</td>
+                <td></td>
+              </tr>` : ""}
+            </table>` : `<div style="font-size:12px; color:#999; margin-bottom:8px;">No functional tests recorded in this period.</div>`}
+
+            <!-- LAB COMPARISON: Baseline vs 3-Month -->
+            ${baselineLabLog ? (() => {
+              const labCols = [baselineLabLog, followupLabLog].filter(Boolean);
+              const labHeaders = labCols.map(l => {
+                const lb = l.lab || l.periodic_labs || {};
+                const tag = l === baselineLabLog ? " (baseline)" : " (3-month)";
+                return `<td style="padding:4px 8px; text-align:center;">${l.date}${tag}</td>`;
+              }).join("");
+              const labRow = (label, ...keys) => {
+                const vals = labCols.map(l => {
+                  const lb = l.lab || l.periodic_labs || {};
+                  return vr(pick(lb, ...keys));
+                });
+                if (vals.every(v => v === "N/A" || v === "—")) return "";
+                return `<tr><td style="padding:4px 8px;">${label}</td>${vals.map((v,i) => `<td style="padding:4px 8px; text-align:center; background:${i%2===0?"#fff":"#f5f5f8"};">${v}</td>`).join("")}</tr>`;
+              };
+              const rows = [
+                labRow("VLCFA C24:0 (µg/mL)", "vlcfa_c24"),
+                labRow("VLCFA C25:0 (µg/mL)", "vlcfa_c25"),
+                labRow("VLCFA C26:0 (µg/mL)", "vlcfa_c26", "vlcfa"),
+                labRow("VLCFA C26/C22 ratio", "vlcfa_ratio"),
+                labRow("CBC", "cbc"),
+                labRow("AST (U/L)", "ast"),
+                labRow("ALT (U/L)", "alt"),
+                labRow("ALP (U/L)", "alp"),
+                labRow("Bilirubin (mg/dL)", "bilirubin"),
+                labRow("Creatinine (mg/dL)", "creatinine"),
+                labRow("eGFR (mL/min)", "egfr"),
+                labRow("Sodium (mEq/L)", "sodium"),
+                labRow("Potassium (mEq/L)", "potassium"),
+                labRow("Chloride (mEq/L)", "chloride"),
+                labRow("Bicarbonate (mEq/L)", "bicarbonate"),
+                labRow("Total Cholesterol (mg/dL)", "cholesterol"),
+                labRow("LDL (mg/dL)", "ldl"),
+                labRow("HDL (mg/dL)", "hdl"),
+                labRow("Triglycerides (mg/dL)", "triglycerides"),
+                labRow("RBC Fatty Acid Profile", "rbc_membrane_fa"),
+              ].filter(Boolean);
+              if (!rows.length) return "";
+              return `
+              <div style="font-size:12px; font-weight:700; color:#555; text-transform:uppercase; letter-spacing:0.5px; margin:14px 0 8px;">Laboratory Panels — Baseline vs 3-Month</div>
+              <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                <tr style="background:#e8e8f0; font-weight:700;">
+                  <td style="padding:4px 8px;">Marker</td>
+                  ${labHeaders}
+                </tr>
+                ${rows.join("")}
+              </table>`;
+            })() : ""}
 
             <div style="margin-top:14px; font-size:12.5px; color:#bbb; line-height:1.6;">
               Trend arrows compare the average of the first third vs last third of the period (${third} day${third!==1?"s":""} each).
@@ -4525,14 +4588,13 @@ Persistent background information about your condition. Written once, updated as
               html += `</div>`;
             }
 
-            // FIX #2: Functional tests now merged from tests collection; render all fields
-            html += `<div class="report-section"><h3>Functional Tests</h3>`;
+            // Functional tests — only render on days that have test data
             const ftArr = Array.isArray(log.functional_tests) ? log.functional_tests : [];
             if (ftArr.length > 0) {
+              html += `<div class="report-section"><h3>Functional Test</h3>`;
               ftArr.forEach(ft => {
                 const sw = ft.six_minute_walk || {};
                 const sts = ft.sit_to_stand_5x || {};
-                // Backward compat: arm_support or legacy used_arms
                 const armLabel = sts.arm_support ? ({ none: "None", thighs: "Hands on thighs", walker: "Walker/rails", full: "Full assist" }[sts.arm_support] || sts.arm_support) : (sts.used_arms === "yes" ? "Yes (legacy)" : sts.used_arms === "no" ? "None" : null);
                 html += `<p><strong>Test date:</strong> ${vr(ft.test_date)}${ft.time_of_day ? " (" + ft.time_of_day + ")" : ""}</p>`;
                 html += `<p><em>6-Min Walk:</em> Laps: ${vr(sw.laps)}, Distance: ${vr(sw.calculated_distance_m || sw.distance_m,"m")}, Breaks: ${vr(sw.rest_breaks_count)}, Device: ${vr(sw.assistive_device)}, RPE: ${vr(sw.perceived_exertion)}, Fatigue: ${vr(sw.post_test_fatigue)}</p>`;
@@ -4543,10 +4605,8 @@ Persistent background information about your condition. Written once, updated as
                 }
                 if (ft.notes) html += `<p>Notes: ${vr(ft.notes)}</p>`;
               });
-            } else {
-              html += `<p>N/A</p>`;
+              html += `</div>`;
             }
-            html += `</div>`;
 
             html += `<div class="report-section"><h3>Notes</h3>
               <p><strong>Food:</strong> ${escapeHTML(vr(pick(log,"food_notes")))}</p>
