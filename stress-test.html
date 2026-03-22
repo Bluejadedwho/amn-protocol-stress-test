@@ -1751,6 +1751,34 @@ body.modal-open {
         renderNA();
       }
 
+      // --- FUNCTIONAL TEST REMINDER ---
+      function getFtReminderInfo() {
+        const uid = window.CURRENT_UID || 'local';
+        const lastDate = localStorage.getItem('lastFtDate_' + uid);
+        if (!lastDate) {
+          return { show: true, text: ' \u2014 First functional test due (biweekly schedule)' };
+        }
+        const last = new Date(lastDate + 'T00:00:00');
+        const today = new Date(localDateStr() + 'T00:00:00');
+        const daysSince = Math.floor((today - last) / 86400000);
+        if (daysSince >= 14) {
+          return { show: true, text: ' \u2014 Due now (last: ' + formatDate(lastDate) + ', ' + daysSince + ' days ago)' };
+        }
+        const daysUntil = 14 - daysSince;
+        return { show: false, text: ' \u2014 Next in ' + daysUntil + ' day' + (daysUntil === 1 ? '' : 's') + ' (last: ' + formatDate(lastDate) + ')' };
+      }
+
+      function applyFtBanner(bannerId, textId) {
+        const banner = byId(bannerId);
+        const text = byId(textId);
+        if (!banner || !text) return;
+        const info = getFtReminderInfo();
+        banner.style.display = 'block';
+        text.textContent = info.text;
+        banner.style.borderColor = info.show ? '#30d158' : '#555';
+        banner.style.background = info.show ? '#0d2a1a' : '#1a1a1a';
+      }
+
       // --- BASELINE PANEL ---
       function renderBaseline() {
         const setup = byId('baseline-setup');
@@ -1810,6 +1838,9 @@ body.modal-open {
             labText.textContent = ' \u2014 Draw baseline labs before starting NA';
           }
         }
+
+        // Functional test biweekly reminder
+        applyFtBanner('bl-ft-banner', 'bl-ft-text');
       }
 
       // --- NA PROTOCOL PANEL ---
@@ -1921,20 +1952,20 @@ body.modal-open {
           }
         }
 
-        // Milestone markers
+        // Milestone markers — stress test ends at Day 90 so only show 3-mo labs
         const milestones = byId('na-milestones');
         if (milestones) {
           const items = [
-            { day: 90, label: '3-mo labs', done: currentDay >= 90 },
-            { day: 180, label: '6-mo check', done: currentDay >= 180 },
-            { day: 270, label: '9-mo check', done: currentDay >= 270 },
-            { day: 365, label: '12-mo eval', done: currentDay >= 365 }
+            { day: 90, label: '3-mo labs', done: currentDay >= 90 }
           ];
           milestones.innerHTML = items.map(m => {
             const cls = m.done ? 'milestone-done' : (currentDay >= m.day - 14 ? 'milestone-soon' : '');
             return `<span class="milestone-marker ${cls}">${m.label}</span>`;
           }).join('');
         }
+
+        // Functional test biweekly reminder
+        applyFtBanner('na-ft-banner', 'na-ft-text');
       }
 
       // --- User actions ---
@@ -2518,6 +2549,10 @@ Persistent background information about your condition. Written once, updated as
       <button class="phase-tracker-reset" type="button" onclick="window.resetBaselineDate()" style="margin-top:0;">Reset baseline</button>
     </div>
   </div>
+  <div id="bl-ft-banner" style="display:none; margin-top:8px; padding:10px 14px; border-radius:10px; background:#0d2a1a; border:1px solid #30d158; font-size:0.85rem; color:#ddd;">
+    <span style="color:#30d158; font-weight:700;">Functional Test</span>
+    <span id="bl-ft-text"></span>
+  </div>
 </div>
 <div id="baseline-complete" style="display:none;">
   <div class="baseline-complete-summary"><span class="check">&#10003;</span> <span id="baseline-summary">Baseline completed</span></div>
@@ -2570,6 +2605,10 @@ Persistent background information about your condition. Written once, updated as
     <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
       <button class="phase-tracker-reset" type="button" onclick="window.resetNADate()" style="margin-top:0;">Reset NA date</button>
     </div>
+  </div>
+  <div id="na-ft-banner" style="display:none; margin-top:8px; padding:10px 14px; border-radius:10px; background:#0d2a1a; border:1px solid #30d158; font-size:0.85rem; color:#ddd;">
+    <span style="color:#30d158; font-weight:700;">Functional Test</span>
+    <span id="na-ft-text"></span>
   </div>
 </div>
 </div>
@@ -4835,6 +4874,9 @@ Persistent background information about your condition. Written once, updated as
           const id = `${payload.test_date}_${Date.now()}`;
           const ref = db.doc(userProfilePath("patrick", "synthetic_tests", id));
           await ref.set({ ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp(), clientCreatedAt: new Date().toISOString() }, { merge: true });
+          // Track last test date for biweekly reminder
+          const uid = window.CURRENT_UID || 'local';
+          localStorage.setItem('lastFtDate_' + uid, payload.test_date);
           btns.forEach(b => { try { b.textContent = "SAVED ✓"; } catch(e){} });
           setTimeout(() => btns.forEach(b => { try { b.disabled = false; b.textContent = "SAVE FUNCTIONAL TEST"; } catch(e){} }), 1400);
         } catch (e) {
