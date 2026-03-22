@@ -3721,7 +3721,7 @@ Persistent background information about your condition. Written once, updated as
           const uid = window.CURRENT_UID;
           if (!uid) throw new Error("Not authenticated");
           const dateStr = payload.date || localDateStr();
-          const docRef = db.doc(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs/${encodeURIComponent(dateStr)}`);
+          const docRef = db.doc(`users/${uid}/profiles/${encodeURIComponent(profileId)}/synthetic_logs/${encodeURIComponent(dateStr)}`);
           const finalPayload = { ...payload, date: dateStr, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), clientUpdatedAt: new Date().toISOString() };
           await docRef.set(finalPayload, { merge: true });
         } catch (err) {
@@ -3825,7 +3825,7 @@ Persistent background information about your condition. Written once, updated as
         if (!dateStr) return;
         if (!window.CURRENT_UID) { alert('Sign in to load past entries.'); return; }
         try {
-          const snap = await db.doc(`users/${window.CURRENT_UID}/profiles/patrick/logs/${encodeURIComponent(dateStr)}`).get();
+          const snap = await db.doc(`users/${window.CURRENT_UID}/profiles/patrick/synthetic_logs/${encodeURIComponent(dateStr)}`).get();
           window.resetPilotForm();
           window.__RESTORED_DRAFT_DATE = dateStr;
           _formSessionDate = dateStr;
@@ -3862,14 +3862,14 @@ Persistent background information about your condition. Written once, updated as
       };
 
       async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
-        const q = db.collection(userProfilePath(patientId, "logs"))
+        const q = db.collection(userProfilePath(patientId, "synthetic_logs"))
           .where("date", ">=", startDate).where("date", "<=", endDate).orderBy("date", dir);
         const snapshot = await q.get();
         return snapshot.docs.map((d) => d.data());
       }
 
       async function fetchPatientLogs(patientId, days = 30) {
-        const q = db.collection(userProfilePath(patientId, "logs")).orderBy("date", "desc").limit(days);
+        const q = db.collection(userProfilePath(patientId, "synthetic_logs")).orderBy("date", "desc").limit(days);
         const snapshot = await q.get();
         return snapshot.docs.map((d) => d.data());
       }
@@ -4038,7 +4038,7 @@ Persistent background information about your condition. Written once, updated as
         };
 
         try {
-          const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/logs`);
+          const logsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/synthetic_logs`);
           const snapshot = await logsRef.orderBy("date", "desc").get();
           if (snapshot.empty) { alert("No data found to export."); return; }
           let logs = [];
@@ -4046,7 +4046,7 @@ Persistent background information about your condition. Written once, updated as
 
           // FIX #2: Fetch functional tests collection and merge into logs by date
           try {
-            const testsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/tests`);
+            const testsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent(profileId)}/synthetic_tests`);
             const testsSnap = await testsRef.get();
             const testsByDate = {};
             testsSnap.forEach(doc => {
@@ -4768,7 +4768,7 @@ Persistent background information about your condition. Written once, updated as
           if (hasFunctionalTestData()) {
             const payload = collectFunctionalTestPayload();
             const id = `${payload.test_date}_${Date.now()}`;
-            await db.doc(userProfilePath("patrick", "tests", id)).set(
+            await db.doc(userProfilePath("patrick", "synthetic_tests", id)).set(
               { ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp(), clientCreatedAt: new Date().toISOString() },
               { merge: true }
             );
@@ -4825,7 +4825,7 @@ Persistent background information about your condition. Written once, updated as
         try {
           const payload = collectFunctionalTestPayload();
           const id = `${payload.test_date}_${Date.now()}`;
-          const ref = db.doc(userProfilePath("patrick", "tests", id));
+          const ref = db.doc(userProfilePath("patrick", "synthetic_tests", id));
           await ref.set({ ...payload, createdAt: firebase.firestore.FieldValue.serverTimestamp(), clientCreatedAt: new Date().toISOString() }, { merge: true });
           btns.forEach(b => { try { b.textContent = "SAVED ✓"; } catch(e){} });
           setTimeout(() => btns.forEach(b => { try { b.disabled = false; b.textContent = "SAVE FUNCTIONAL TEST"; } catch(e){} }), 1400);
@@ -5496,7 +5496,7 @@ Persistent background information about your condition. Written once, updated as
         cutoff.setDate(cutoff.getDate() - (dayLimit || 30));
         const cutoffStr = cutoff.toISOString().slice(0, 10);
         const snap = await window.db
-          .collection(`users/${uid}/profiles/patrick/logs`)
+          .collection(`users/${uid}/profiles/patrick/synthetic_logs`)
           .orderBy('date', 'desc')
           .get();
         const logs = [];
