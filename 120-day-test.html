@@ -354,6 +354,7 @@ function generateDay(dayIndex, totalDays, pattern) {
       sustained_walking_effort: sym(symptomBase + 0.5),
       neurologic_fatigue:     sym(symptomBase + 0.2),
       sleep_quality:          symGood(sleepBase),
+      sleep_hours:            Math.round((5.5 + randFloat(0, 3.5) + (isFlareDay ? -1.5 : 0)) * 10) / 10,
       leg_stiffness:          sym(symptomBase + 0.8),
       post_rest_stiffness:    sym(symptomBase + 0.4),
       symptom_volatility:     sym(pattern === 'volatile' ? 6 : symptomBase - 1)
@@ -407,7 +408,12 @@ function generateDay(dayIndex, totalDays, pattern) {
       night_pain_likely_electrolyte_related:boolChance(0.12),
       electrolyte_rescue_type:              boolChance(0.1) ? pick(['na','k','mg','unsure']) : '',
       electrolyte_rescue_window:            boolChance(0.1) ? pick(['15','30','60','120']) : '',
-      nothing_unusual:                      boolChance(0.4)
+      nothing_unusual:                      boolChance(0.4),
+      hc_stress_dose_taken:                 boolChance(0.04),
+      pharm_notes:                          boolChance(0.08) ? pick(['Took ibuprofen for back pain', 'Added magnesium glycinate PM', 'Tried melatonin 0.5mg', 'CBD oil before bed', 'Extra B12 this week']) : '',
+      pos_conf_exercise:                    boolChance(0.12),
+      pos_conf_lowstress:                   boolChance(0.08),
+      pos_conf_seasonal:                    boolChance(0.05)
     },
 
     positive_events: isFlareDay ? [] : (boolChance(0.3) ? [{ desc: pick([
@@ -502,6 +508,18 @@ function generateFunctionalTest(dayIndex, totalDays, pattern) {
       chair_height_cm: 46,
       perceived_exertion: clamp(rand(4, 8), 0, 10)
     },
+    timed_25fw: (function() {
+      const t25Base = 6.5 - t * 1.2 + (pattern === 'volatile' ? randFloat(-1.5, 1.5) : 0);
+      const trial1 = Math.round(clamp(t25Base + randFloat(-0.8, 0.8), 3.5, 12) * 10) / 10;
+      const trial2 = Math.round(clamp(t25Base + randFloat(-0.8, 0.8), 3.5, 12) * 10) / 10;
+      return {
+        trial_1_seconds: trial1,
+        trial_2_seconds: trial2,
+        average_seconds: Math.round((trial1 + trial2) / 2 * 10) / 10,
+        assistive_device: boolChance(0.25) ? pick(['cane', 'none']) : null,
+        perceived_exertion: clamp(rand(3, 7), 1, 10)
+      };
+    })(),
     notes: boolChance(0.3) ? pick([
       'Felt stronger today',
       'Legs stiff at start',
