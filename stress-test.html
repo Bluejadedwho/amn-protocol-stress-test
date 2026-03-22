@@ -4408,6 +4408,7 @@ Persistent background information about your condition. Written once, updated as
               <li>Sustained walking effort: ${vr(pick(sd,"sustained_walking_effort","sustained_walking"))}</li>
               <li>Neurologic fatigue: ${vr(pick(sd,"neurologic_fatigue"))}</li>
               <li>Sleep Quality: ${vr(pick(sd,"sleep_quality"))}</li>
+              ${pick(sd,"sleep_hours") != null ? `<li>Hours slept: ${vr(pick(sd,"sleep_hours"))}</li>` : ""}
               <li>Leg Stiffness: ${vr(pick(sd,"leg_stiffness"))}</li>
               <li>Post-rest stiffness: ${vr(pick(sd,"post_rest_stiffness"))}</li>
               <li>Symptom volatility: ${vr(pick(sd,"symptom_volatility"))}</li>
@@ -4427,7 +4428,9 @@ Persistent background information about your condition. Written once, updated as
             </div>`;
 
             html += `<div class="report-section"><h3>Confounders</h3>
-              <p>Poor sleep: ${yn(pick(ctx,"poor_sleep_last_night"))}, Unusual exertion: ${yn(pick(ctx,"unusual_physical_exertion"))}, Medication timing: ${yn(pick(ctx,"medication_timing_change"))}, Dose change: ${yn(pick(ctx,"dose_change"))}, Missed dose: ${yn(pick(ctx,"missed_dose"))}, New supplement: ${yn(pick(ctx,"new_supplement_added"))}, Travel/Schedule: ${yn(pick(ctx,"travel_or_disrupted_schedule"))}, High stress (0-3): ${vr(pick(ctx,"high_stress"))}, Infection: ${yn(pick(ctx,"infection_symptoms"))}, GI/Dehydration: ${yn(pick(ctx,"gi_upset_or_dehydration_risk"))}, Electrolyte night pain: ${yn(pick(ctx,"night_pain_likely_electrolyte_related"))}, Nothing unusual: ${yn(pick(ctx,"nothing_unusual"))}</p>
+              <p>Poor sleep: ${yn(pick(ctx,"poor_sleep_last_night"))}, Unusual exertion: ${yn(pick(ctx,"unusual_physical_exertion"))}, Medication timing: ${yn(pick(ctx,"medication_timing_change"))}, Dose change: ${yn(pick(ctx,"dose_change"))}, Missed dose: ${yn(pick(ctx,"missed_dose"))}, New supplement: ${yn(pick(ctx,"new_supplement_added"))}, New medication: ${yn(pick(ctx,"new_medication_added"))}, HC stress dose: ${yn(pick(ctx,"hc_stress_dose_taken"))}, Travel/Schedule: ${yn(pick(ctx,"travel_or_disrupted_schedule"))}, High stress (0-3): ${vr(pick(ctx,"high_stress"))}, Infection: ${yn(pick(ctx,"infection_symptoms"))}, GI/Dehydration: ${yn(pick(ctx,"gi_upset_or_dehydration_risk"))}, Electrolyte night pain: ${yn(pick(ctx,"night_pain_likely_electrolyte_related"))}, Nothing unusual: ${yn(pick(ctx,"nothing_unusual"))}</p>
+              <p><strong>Positive changes (may inflate apparent improvement):</strong> Increased exercise/activity: ${yn(pick(ctx,"pos_conf_exercise"))}, Unusually low stress / improved circumstances: ${yn(pick(ctx,"pos_conf_lowstress"))}, Seasonal activity increase: ${yn(pick(ctx,"pos_conf_seasonal"))}</p>
+              ${pick(ctx,"pharm_notes") ? `<p><strong>Pharm notes:</strong> ${pick(ctx,"pharm_notes")}</p>` : ""}
             </div>`;
 
             const extLevel = (ext && typeof ext.level !== "undefined") ? ext.level : undefined;
@@ -4495,6 +4498,10 @@ Persistent background information about your condition. Written once, updated as
                 html += `<p><strong>Test date:</strong> ${vr(ft.test_date)}${ft.time_of_day ? " (" + ft.time_of_day + ")" : ""}</p>`;
                 html += `<p><em>6-Min Walk:</em> Laps: ${vr(sw.laps)}, Distance: ${vr(sw.calculated_distance_m || sw.distance_m,"m")}, Breaks: ${vr(sw.rest_breaks_count)}, Device: ${vr(sw.assistive_device)}, RPE: ${vr(sw.perceived_exertion)}, Fatigue: ${vr(sw.post_test_fatigue)}</p>`;
                 html += `<p><em>Sit-Stand:</em> Time: ${vr(sts.time_seconds,"s")}, Reps: ${vr(sts.target_reps)} (done: ${vr(sts.reps_completed)}), Arm support: ${vr(armLabel)}, Chair: ${vr(sts.chair_height_cm,"cm")}, RPE: ${vr(sts.perceived_exertion)}</p>`;
+                const t25 = ft.timed_25fw || {};
+                if (t25.trial_1_seconds || t25.average_seconds) {
+                  html += `<p><em>T25FW:</em> Trial 1: ${vr(t25.trial_1_seconds,"s")}, Trial 2: ${vr(t25.trial_2_seconds,"s")}, Avg: ${vr(t25.average_seconds,"s")}, Device: ${vr(t25.assistive_device)}, RPE: ${vr(t25.perceived_exertion)}</p>`;
+                }
                 if (ft.notes) html += `<p>Notes: ${vr(ft.notes)}</p>`;
               });
             } else {
