@@ -2125,6 +2125,9 @@ body.modal-open {
 <body>
 <div id="report-view"></div>
 
+<!-- Fixed stress test indicator — visible on every screen, non-clickable -->
+<div id="stress-test-badge" style="position:fixed; top:12px; right:12px; z-index:9999; background:rgba(255,69,58,0.15); border:1px solid var(--danger-red); color:var(--danger-red); font-size:0.72rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; padding:5px 10px; border-radius:20px; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); pointer-events:none; cursor:default;">⚡ Stress Test</div>
+
 <!-- FIX #4: Auth overlay now uses a proper HTML form for iOS autofill reliability -->
 <div id="auth-overlay">
 <div id="auth-card">
@@ -2705,8 +2708,6 @@ Persistent background information about your condition. Written once, updated as
 
 <div class="nav-links-row">
 <div class="nav-links-inner">
-<a href="index.html" style="color:#ef4444; font-size:0.78rem; font-weight:600; text-decoration:none;">⚡ Stress Test</a>
-<span class="nav-dot">&middot;</span>
 <a href="120-day-test.html">120-Day Loader</a>
 </div>
 </div>
