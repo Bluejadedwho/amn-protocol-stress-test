@@ -1133,6 +1133,7 @@ body.modal-open {
     window.openTrends = function() {
       window.setActiveView('trends-view');
       if (typeof window.renderTrends === "function") window.renderTrends();
+      if (typeof window.initSignalReviewUI === "function") window.initSignalReviewUI();
     };
 
     // Prevent background page scroll when touching a modal overlay
@@ -1497,6 +1498,222 @@ body.modal-open {
       if(modal) modal.style.display = 'none';
     };
 
+    // ── Escalation Review Modal ──────────────────────────────────────
+    window.openEscalationModal = function() {
+      const m = byId('escalation-modal');
+      if (!m) return;
+      m.style.display = 'block';
+      // Restore most recent saved review into form fields
+      try {
+        const log = JSON.parse(localStorage.getItem('escalation_review_log') || '[]');
+        if (log.length > 0) {
+          const r = log[0];
+          if (r.months_at_dose) { const el = byId('esc-months'); if (el) el.value = r.months_at_dose; }
+          if (r.gates) {
+            const gateMap = {
+              'esc-g1': r.gates.twelve_months,
+              'esc-g2': r.gates.labs_stable,
+              'esc-g3': r.gates.functional_improvement,
+              'esc-g4': r.gates.sustained_3mo,
+              'esc-g5': r.gates.confirmed_by_measures,
+              'esc-g11': r.gates.physiological_stability_30d,
+              'esc-g6': r.gates.active_confounders,
+              'esc-g7': r.gates.safety_concerns,
+              'esc-g8': r.gates.biomarker_only,
+              'esc-g9': r.gates.urgency_driven,
+              'esc-g10': r.gates.positive_confounder,
+            };
+            Object.entries(gateMap).forEach(([name, val]) => {
+              if (val) {
+                const el = document.querySelector('input[name="' + name + '"][value="' + val + '"]');
+                if (el) el.checked = true;
+              }
+            });
+          }
+          if (r.cooling_start) { const el = byId('esc-cooling-start'); if (el) el.value = r.cooling_start; }
+          if (r.reflection) { const el = byId('esc-reflection'); if (el) el.value = r.reflection; }
+          if (r.day30_confirm) { const el = byId('esc-day30-confirm'); if (el) el.value = r.day30_confirm; }
+        }
+      } catch(e) {}
+      window._loadEscalationHistory();
+      window.computeEscalationStatus();
+    };
+
+    window.closeEscalationModal = function() {
+      const m = byId('escalation-modal');
+      if (m) m.style.display = 'none';
+    };
+
+    window.computeEscalationStatus = function() {
+      const statusText = byId('esc-status-text');
+      const statusBlock = byId('esc-status-block');
+      if (!statusText) return;
+
+      const months = parseFloat(byId('esc-months')?.value) || 0;
+      const coolingStart = byId('esc-cooling-start')?.value;
+
+      const get = (name) => {
+        const el = document.querySelector('input[name="' + name + '"]:checked');
+        return el ? el.value : null;
+      };
+
+      // Enabling: all must be yes
+      const g1 = get('esc-g1'); // 12 months
+      const g2 = get('esc-g2'); // labs stable
+      const g3 = get('esc-g3'); // functional improvement
+      const g4 = get('esc-g4'); // sustained 3 months
+      const g5 = get('esc-g5'); // confirmed by measures
+      const g11 = get('esc-g11'); // physiological stability 30 days
+
+      // Blocking: any yes blocks
+      const g6 = get('esc-g6'); // active confounders
+      const g7 = get('esc-g7'); // safety concerns
+      const g8 = get('esc-g8'); // biomarker only
+      const g9 = get('esc-g9'); // urgency/fear
+      const g10 = get('esc-g10'); // positive confounder
+
+      // Check blocking conditions first
+      const blocked = (g6 === 'yes') || (g7 === 'yes') || (g8 === 'yes') || (g9 === 'yes') || (g10 === 'yes');
+      const enableMet = g1 === 'yes' && g2 === 'yes' && g3 === 'yes' && g4 === 'yes' && g5 === 'yes' && g11 === 'yes' && months >= 12;
+      const enableAnswered = [g1,g2,g3,g4,g5,g11].some(v => v !== null);
+      const blockAnswered = [g6,g7,g8,g9,g10].some(v => v !== null);
+
+      // Cooling-off check
+      let coolingActive = false;
+      if (coolingStart) {
+        const start = new Date(coolingStart);
+        const earliest = new Date(start);
+        earliest.setDate(earliest.getDate() + 30);
+        const endEl = byId('esc-cooling-end');
+        if (endEl) endEl.textContent = earliest.toLocaleDateString('en-US', {year:'numeric',month:'short',day:'numeric'});
+        coolingActive = new Date() < earliest;
+      } else {
+        const endEl = byId('esc-cooling-end');
+        if (endEl) endEl.textContent = '—';
+      }
+
+      // Day-30 section visibility
+      const day30Section = byId('esc-day30-section');
+      if (day30Section) {
+        day30Section.style.display = (coolingStart && !coolingActive) ? 'block' : 'none';
+      }
+
+      let status, color, borderColor;
+      if (!enableAnswered && !blockAnswered) {
+        status = '— Complete gate conditions above —';
+        color = '#aaa'; borderColor = '#333';
+      } else if (blocked) {
+        status = 'Hold current dose';
+        color = '#ff453a'; borderColor = '#ff453a';
+      } else if (!enableMet) {
+        const missing = [];
+        if (g1 !== 'yes' || months < 12) missing.push('12 months not elapsed');
+        if (g2 !== 'yes') missing.push('labs not confirmed stable');
+        if (g3 !== 'yes') missing.push('no confirmed functional improvement');
+        if (g4 !== 'yes') missing.push('improvement not sustained ≥3 months');
+        if (g5 !== 'yes') missing.push('improvement not confirmed by repeatable measures');
+        if (g11 !== 'yes') missing.push('confounder stability not confirmed for past 30 days');
+        status = 'Hold — criteria not met' + (missing.length ? ': ' + missing[0] : '');
+        color = '#ff9f0a'; borderColor = '#ff9f0a';
+      } else if (coolingActive) {
+        status = 'Defer — cooling-off period active';
+        color = '#0a84ff'; borderColor = '#0a84ff';
+      } else {
+        status = 'Eligible for discussion';
+        color = '#30d158'; borderColor = '#30d158';
+      }
+
+      statusText.textContent = status;
+      statusText.style.color = color;
+      if (statusBlock) statusBlock.style.borderColor = borderColor;
+    };
+
+    window.saveEscalationReview = function() {
+      const get = (name) => {
+        const el = document.querySelector('input[name="' + name + '"]:checked');
+        return el ? el.value : null;
+      };
+      const record = {
+        timestamp: new Date().toISOString(),
+        months_at_dose: byId('esc-months')?.value || '',
+        gates: {
+          twelve_months: get('esc-g1'),
+          labs_stable: get('esc-g2'),
+          functional_improvement: get('esc-g3'),
+          sustained_3mo: get('esc-g4'),
+          confirmed_by_measures: get('esc-g5'),
+          physiological_stability_30d: get('esc-g11'),
+          active_confounders: get('esc-g6'),
+          safety_concerns: get('esc-g7'),
+          biomarker_only: get('esc-g8'),
+          urgency_driven: get('esc-g9'),
+          positive_confounder: get('esc-g10'),
+        },
+        cooling_start: byId('esc-cooling-start')?.value || '',
+        reflection: byId('esc-reflection')?.value || '',
+        day30_confirm: byId('esc-day30-confirm')?.value || '',
+        computed_status: byId('esc-status-text')?.textContent || '',
+      };
+
+      // Auto-set cooling start to today if not already set
+      const coolingEl = byId('esc-cooling-start');
+      if (coolingEl && !coolingEl.value) {
+        const today = new Date().toISOString().split('T')[0];
+        coolingEl.value = today;
+        record.cooling_start = today;
+        window.computeEscalationStatus();
+      }
+
+      // Save to localStorage
+      let log = [];
+      try { log = JSON.parse(localStorage.getItem('escalation_review_log') || '[]'); } catch(e) {}
+      log.unshift(record);
+      localStorage.setItem('escalation_review_log', JSON.stringify(log));
+
+      // Save to Firestore if authenticated
+      if (window.CURRENT_UID && window.db) {
+        const path = 'users/' + window.CURRENT_UID + '/profiles/patrick/escalation_reviews/' + encodeURIComponent(record.timestamp);
+        window.db.doc(path).set(record).catch(e => console.warn('Escalation Firestore save failed:', e));
+      }
+
+      const fb = byId('esc-save-feedback');
+      if (fb) { fb.textContent = 'Review saved — ' + new Date().toLocaleString(); }
+      window._loadEscalationHistory();
+    };
+
+    window.resetEscalationReview = function() {
+      if (!confirm('Clear all saved escalation review history? This removes the local record but does not delete from Firestore.')) return;
+      localStorage.removeItem('escalation_review_log');
+      // Blank out form fields
+      ['esc-months','esc-cooling-start','esc-reflection','esc-day30-confirm'].forEach(id => {
+        const el = byId(id); if (el) el.value = '';
+      });
+      document.querySelectorAll('#escalation-modal input[type="radio"]').forEach(el => el.checked = false);
+      const fb = byId('esc-save-feedback');
+      if (fb) fb.textContent = '';
+      window._loadEscalationHistory();
+      window.computeEscalationStatus();
+    };
+
+    window._loadEscalationHistory = function() {
+      let log = [];
+      try { log = JSON.parse(localStorage.getItem('escalation_review_log') || '[]'); } catch(e) {}
+      const block = byId('esc-history-block');
+      const list = byId('esc-history-list');
+      if (!block || !list) return;
+      if (log.length === 0) { block.style.display = 'none'; return; }
+      block.style.display = 'block';
+      list.innerHTML = log.slice(0, 5).map(r => {
+        const d = new Date(r.timestamp).toLocaleString('en-US', {month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+        return '<div style="background:#1a1a1c; border-radius:8px; padding:10px 14px; font-size:0.8rem;">' +
+          '<div style="color:#aaa; margin-bottom:2px;">' + d + '</div>' +
+          '<div style="font-weight:600; color:#fff;">' + (r.computed_status || '—') + '</div>' +
+          (r.reflection ? '<div style="color:#666; margin-top:4px; font-style:italic;">' + r.reflection.substring(0, 120) + (r.reflection.length > 120 ? '…' : '') + '</div>' : '') +
+          '</div>';
+      }).join('');
+    };
+    // ── End Escalation Review Modal ──────────────────────────────────
+
     window.runExportFromModal = async function(){
       const target = window.__EXPORT_TARGET || { patientId: 'patrick', label: 'Pilot' };
       const startRaw = byId('export-start')?.value;
@@ -1553,7 +1770,9 @@ body.modal-open {
         } catch(e) { /* cross-origin guard — non-fatal */ }
         const includeMedicalContext = byId('export-include-medical-context')?.checked || false;
         const includeAINarrative = byId('export-include-ai-narrative')?.checked || false;
-        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, start, end, dir, patientName, patientDob, printWindow: printWin, includeMedicalContext, includeAINarrative });
+        const includeSignalReview = byId('export-include-signal-review')?.checked || false;
+        const includeBaselineVariability = byId('export-include-baseline-variability')?.checked || false;
+        await window.__EXPORT_RUN({ patientId: target.patientId, label: target.label, start, end, dir, patientName, patientDob, printWindow: printWin, includeMedicalContext, includeAINarrative, includeSignalReview, includeBaselineVariability });
         window.closeExportModal();
       } catch(e){
         console.error(e);
@@ -1818,6 +2037,31 @@ body.modal-open {
             labBanner.style.display = 'block';
             labText.textContent = ' \u2014 Draw baseline labs before starting NA';
           }
+        }
+
+        // Symptom data density indicator — count days with real symptom slider data
+        const densityEl = byId('bl-symptom-density');
+        if (densityEl && currentDay > 0 && window.CURRENT_UID && typeof db !== 'undefined') {
+          densityEl.style.display = 'block';
+          densityEl.textContent = 'Symptom data: loading…';
+          (async () => {
+            try {
+              const todayS = new Date().toISOString().slice(0, 10);
+              const snap = await db.collection(userProfilePath('patrick', 'logs'))
+                .where('date', '>=', blDate).where('date', '<=', todayS).get();
+              let symptomDays = 0;
+              snap.forEach(doc => {
+                const sd = doc.data()?.symptom_drift;
+                if (sd && typeof sd === 'object') {
+                  const hasSymptom = Object.values(sd).some(v => v !== null && v !== undefined && v !== '');
+                  if (hasSymptom) symptomDays++;
+                }
+              });
+              densityEl.textContent = `Symptom data: ${symptomDays} of ${currentDay} day${currentDay !== 1 ? 's' : ''}`;
+            } catch(e) {
+              densityEl.textContent = 'Symptom data: unavailable';
+            }
+          })();
         }
       }
 
@@ -2237,6 +2481,16 @@ body.modal-open {
 <input id="export-include-ai-narrative" type="checkbox"/>
 </label>
 <div class="helper" style="font-size:0.78rem; color:#666; margin-bottom:12px;">Generates a plain-language paragraph summarizing trends, adherence, and notable patterns — useful for sharing with a clinician.</div>
+<label class="checkbox-row" style="margin-top:4px; margin-bottom:4px;">
+<span style="font-size:0.85rem; color:var(--text-secondary);">Include most recent Signal Review <span style="color:#38bdf8; font-size:0.78rem;">(Claude)</span></span>
+<input id="export-include-signal-review" type="checkbox"/>
+</label>
+<div class="helper" style="font-size:0.78rem; color:#666; margin-bottom:12px;">Appends the most recently saved Protocol Signal Review to the PDF, labeled with its checkpoint and date.</div>
+<label class="checkbox-row" style="margin-top:4px; margin-bottom:4px;">
+<span style="font-size:0.85rem; color:var(--text-secondary);">Include Baseline Variability Reference</span>
+<input id="export-include-baseline-variability" type="checkbox"/>
+</label>
+<div class="helper" style="font-size:0.78rem; color:#666; margin-bottom:12px;">Appends a summary page showing the calculated baseline mean and range for each tracked metric — formal reference for escalation decisions.</div>
 <button class="lab-save-btn" id="export-run-btn" onclick="window.runExportFromModal()" type="button">Generate PDF</button>
 </div>
 </div>
@@ -2321,6 +2575,15 @@ Conceptual Foundation and Mechanistic Framework
 <p>This is an N of 1 protocol. The Pilot is the primary subject (myself), who implements the full protocol and tracks tolerability, safety, and functional outcomes over time.</p>
 <p>This system exists to apply structured, translation-focused reasoning in an area where large-scale human research remains limited.</p>
 <p>It is structured, controlled, and documented.</p>
+<hr style="border-color:#333; margin: 20px 0;"/>
+<h4 style="color:#FF9F0A; margin-bottom:6px; text-align:center;">Data Tools</h4>
+<p style="font-size:0.82rem; color:#aaa; margin-bottom:12px; text-align:center;">One-time data migrations and maintenance operations. Run only when instructed.</p>
+<div style="background:#1a1a1e; border:1px solid #333; border-radius:10px; padding:14px; margin-bottom:8px;">
+  <div style="font-size:0.9rem; font-weight:700; color:#e0e0e0; margin-bottom:4px;">Anxiety &amp; Cognitive Load Scale Inversion (March 2026)</div>
+  <div style="font-size:0.8rem; color:#aaa; line-height:1.45; margin-bottom:10px;">Corrects stored values so higher = better, consistent with all other sliders. Formula: corrected = 10 − stored. Applies to <code>psychological_state.anxiety</code> and <code>psychological_state.cognitive_load</code> across all logs for the patrick profile. Safe to inspect — guards against double-run.</div>
+  <button id="migration-run-btn" type="button" onclick="window.runAnxietyCogLoadMigration()" style="font-size:0.8rem; padding:8px 16px; background:#FF9F0A; color:#000; font-weight:700; border:none; border-radius:8px; cursor:pointer;">RUN MIGRATION</button>
+  <div id="migration-output" style="margin-top:10px; font-size:0.8rem; color:#aaa; font-family:monospace; white-space:pre-wrap; line-height:1.5;"></div>
+</div>
 </div>
 </div>
 </div>
@@ -2523,6 +2786,7 @@ Persistent background information about your condition. Written once, updated as
     <div class="phase-tracker-meta" style="margin-top:8px;">
       <span id="bl-start-label">Started: &#8212;</span>
     </div>
+    <div id="bl-symptom-density" style="font-size:0.8rem; color:#aaa; margin-top:6px; display:none;">Symptom data: &#8212;</div>
     <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
       <button class="phase-tracker-reset" type="button" onclick="window.resetBaselineDate()" style="margin-top:0;">Reset baseline</button>
     </div>
@@ -2693,6 +2957,174 @@ Persistent background information about your condition. Written once, updated as
 </div>
 </div>
 </div>
+
+<!-- ── Escalation Review Modal ─────────────────────────────────── -->
+<div id="escalation-modal" onclick="if(event.target===this)window.closeEscalationModal()" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:2000; overflow-y:auto; padding:20px; box-sizing:border-box;">
+<div style="max-width:640px; margin:0 auto; background:#1c1c1e; border-radius:18px; border:1px solid #333; overflow:hidden;">
+  <div style="display:flex; align-items:center; justify-content:space-between; padding:20px 24px 16px; border-bottom:1px solid #2a2a2e;">
+    <h2 style="margin:0; font-size:1.1rem; font-weight:700;">Escalation Review</h2>
+    <button onclick="window.closeEscalationModal()" type="button" style="background:none; border:none; color:#aaa; font-size:1rem; cursor:pointer; padding:4px 10px;">Close</button>
+  </div>
+  <div style="padding:20px 24px;">
+    <p style="font-size:0.85rem; color:#aaa; line-height:1.6; margin:0 0 20px 0;">There is no human dose-finding data for Nervonic Acid in AMN. Every escalation decision is made in an evidence vacuum. This review introduces friction by design &#8212; it protects the integrity of the year-one dataset and prevents urgency or hope from substituting for criteria.</p>
+
+    <!-- Section A: Gate Conditions -->
+    <div style="background:#0d0d0e; border-radius:12px; border:1px solid var(--accent-color,#30d158); padding:16px 18px; margin-bottom:16px;">
+      <h3 style="margin:0 0 14px 0; font-size:0.9rem; font-weight:700; color:var(--accent-color,#30d158);">A — Gate Conditions</h3>
+      <p style="font-size:0.78rem; color:#777; margin:0 0 14px 0;">All enabling conditions must be met; any disqualifying condition blocks escalation.</p>
+
+      <div style="margin-bottom:12px;">
+        <label style="font-size:0.83rem; color:#ccc; display:block; margin-bottom:4px;">Months at current dose</label>
+        <input id="esc-months" type="number" min="0" max="36" placeholder="e.g. 12" oninput="window.computeEscalationStatus()" style="width:100%; background:#1a1a1c; border:1px solid #333; border-radius:8px; color:#fff; padding:8px 12px; font-size:0.85rem; box-sizing:border-box;"/>
+      </div>
+
+      <div id="esc-gates-list" style="display:flex; flex-direction:column; gap:10px;">
+        <!-- Enabling gates (all must be YES) -->
+        <div class="esc-gate" data-type="enable">
+          <label style="font-size:0.83rem; color:#ccc; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+            <span>12 months elapsed at this dose?</span>
+            <span style="display:flex; gap:8px; flex-shrink:0;">
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g1" value="yes" onchange="window.computeEscalationStatus()"> Yes</label>
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g1" value="no" onchange="window.computeEscalationStatus()"> No</label>
+            </span>
+          </label>
+        </div>
+        <div class="esc-gate" data-type="enable">
+          <label style="font-size:0.83rem; color:#ccc; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+            <span>Current labs stable (no concerning trends)?</span>
+            <span style="display:flex; gap:8px; flex-shrink:0;">
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g2" value="yes" onchange="window.computeEscalationStatus()"> Yes</label>
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g2" value="no" onchange="window.computeEscalationStatus()"> No</label>
+            </span>
+          </label>
+        </div>
+        <div class="esc-gate" data-type="enable">
+          <label style="font-size:0.83rem; color:#ccc; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+            <span>Measurable functional improvement beyond baseline variability?<span style="font-size:0.75rem; color:#666; display:block; margin-top:3px; line-height:1.45;">Improvement must appear across more than one functional test and show a corresponding directional shift in related symptom domains. Not isolated to a single measure. Cross-validated across objective tests and subjective symptom data.</span></span>
+            <span style="display:flex; gap:8px; flex-shrink:0; margin-top:2px;">
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g3" value="yes" onchange="window.computeEscalationStatus()"> Yes</label>
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g3" value="no" onchange="window.computeEscalationStatus()"> No</label>
+            </span>
+          </label>
+        </div>
+        <div class="esc-gate" data-type="enable">
+          <label style="font-size:0.83rem; color:#ccc; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+            <span>Improvement sustained &#8805;3 months?</span>
+            <span style="display:flex; gap:8px; flex-shrink:0;">
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g4" value="yes" onchange="window.computeEscalationStatus()"> Yes</label>
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g4" value="no" onchange="window.computeEscalationStatus()"> No</label>
+            </span>
+          </label>
+        </div>
+        <div class="esc-gate" data-type="enable">
+          <label style="font-size:0.83rem; color:#ccc; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+            <span>Improvement confirmed by repeatable functional measures?</span>
+            <span style="display:flex; gap:8px; flex-shrink:0;">
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g5" value="yes" onchange="window.computeEscalationStatus()"> Yes</label>
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g5" value="no" onchange="window.computeEscalationStatus()"> No</label>
+            </span>
+          </label>
+        </div>
+        <div class="esc-gate" data-type="enable">
+          <label style="font-size:0.83rem; color:#ccc; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+            <span>Confounder load has been low and stable for ≥30 days leading into this review?<span style="font-size:0.75rem; color:#666; display:block; margin-top:3px; line-height:1.45;">(No significant illness, stress flares, medication changes, or lifestyle shifts during the primary measurement window)</span></span>
+            <span style="display:flex; gap:8px; flex-shrink:0; margin-top:2px;">
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g11" value="yes" onchange="window.computeEscalationStatus()"> Yes</label>
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g11" value="no" onchange="window.computeEscalationStatus()"> No</label>
+            </span>
+          </label>
+        </div>
+        <!-- Disqualifying gates (any YES blocks) -->
+        <div style="margin-top:4px; padding-top:10px; border-top:1px solid #2a2a2e;">
+          <p style="font-size:0.75rem; color:#777; margin:0 0 10px 0;">Any "Yes" below blocks escalation:</p>
+        </div>
+        <div class="esc-gate" data-type="block">
+          <label style="font-size:0.83rem; color:#ccc; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+            <span>Active confounders present (infection, stress, sleep disruption)?</span>
+            <span style="display:flex; gap:8px; flex-shrink:0;">
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g6" value="yes" onchange="window.computeEscalationStatus()"> Yes</label>
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g6" value="no" onchange="window.computeEscalationStatus()"> No</label>
+            </span>
+          </label>
+        </div>
+        <div class="esc-gate" data-type="block">
+          <label style="font-size:0.83rem; color:#ccc; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+            <span>Unresolved safety, oversight, or compliance concerns?</span>
+            <span style="display:flex; gap:8px; flex-shrink:0;">
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g7" value="yes" onchange="window.computeEscalationStatus()"> Yes</label>
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g7" value="no" onchange="window.computeEscalationStatus()"> No</label>
+            </span>
+          </label>
+        </div>
+        <div class="esc-gate" data-type="block">
+          <label style="font-size:0.83rem; color:#ccc; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+            <span>Request based mainly on biomarker movement (not functional change)?</span>
+            <span style="display:flex; gap:8px; flex-shrink:0;">
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g8" value="yes" onchange="window.computeEscalationStatus()"> Yes</label>
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g8" value="no" onchange="window.computeEscalationStatus()"> No</label>
+            </span>
+          </label>
+        </div>
+        <div class="esc-gate" data-type="block">
+          <label style="font-size:0.83rem; color:#ccc; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+            <span>Request driven mainly by urgency, fear, or novelty-seeking?</span>
+            <span style="display:flex; gap:8px; flex-shrink:0;">
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g9" value="yes" onchange="window.computeEscalationStatus()"> Yes</label>
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g9" value="no" onchange="window.computeEscalationStatus()"> No</label>
+            </span>
+          </label>
+        </div>
+        <div class="esc-gate" data-type="block">
+          <label style="font-size:0.83rem; color:#ccc; display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+            <span>Improvement attributable to a positive confounder?<span style="font-size:0.75rem; color:#666; display:block; margin-top:3px; line-height:1.45;">(seasonal activity increase, new exercise routine, life circumstances improved, regression to the mean, practice/learning effect on functional tests, expectation effect from active intervention)</span></span>
+            <span style="display:flex; gap:8px; flex-shrink:0; margin-top:2px;">
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g10" value="yes" onchange="window.computeEscalationStatus()"> Yes</label>
+              <label style="font-size:0.8rem; color:#aaa;"><input type="radio" name="esc-g10" value="no" onchange="window.computeEscalationStatus()"> No</label>
+            </span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section B: Cooling-Off Period -->
+    <div style="background:#0d0d0e; border-radius:12px; border:1px solid #0a84ff; padding:16px 18px; margin-bottom:16px;">
+      <h3 style="margin:0 0 8px 0; font-size:0.9rem; font-weight:700; color:#0a84ff;">B &#8212; Cooling-Off Period</h3>
+      <p style="font-size:0.78rem; color:#777; line-height:1.55; margin:0 0 14px 0;">The moment escalation feels justified is the highest-risk moment for bias-driven decision-making. This 30-day period creates mandatory distance between the state that generated the question and the structural decision that follows. Criteria must still hold at day 30.</p>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:0.83rem; color:#ccc; display:block; margin-bottom:4px;">Cooling-off start date <span style="font-size:0.75rem; color:#555;">(auto-set on save if gates pass)</span></label>
+        <input id="esc-cooling-start" type="date" oninput="window.computeEscalationStatus()" style="width:100%; background:#1a1a1c; border:1px solid #333; border-radius:8px; color:#fff; padding:8px 12px; font-size:0.85rem; box-sizing:border-box;"/>
+      </div>
+      <div style="font-size:0.82rem; color:#aaa; margin-bottom:14px;">
+        Earliest eligible review date: <strong id="esc-cooling-end" style="color:#fff;">&#8212;</strong>
+      </div>
+      <label style="font-size:0.83rem; color:#ccc; display:block; margin-bottom:6px;">If I increase now, what specific answer becomes less interpretable?</label>
+      <textarea id="esc-reflection" rows="4" placeholder="Examples: Was 1 g actually helping? Was early response novelty-driven? Were biomarker shifts decoupled from function? Was the signal still evolving?" style="width:100%; background:#1a1a1c; border:1px solid #333; border-radius:8px; color:#fff; padding:10px 12px; font-size:0.85rem; line-height:1.5; resize:vertical; box-sizing:border-box;"></textarea>
+      <div id="esc-day30-section" style="display:none; margin-top:16px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.08);">
+        <div style="font-size:0.83rem; color:#30d158; font-weight:700; margin-bottom:6px;">Day-30 Confirmation</div>
+        <div style="font-size:0.78rem; color:#777; margin-bottom:10px; line-height:1.5;">30 days have elapsed. Confirm that the original criteria still hold and that positive confounders have been actively ruled out before proceeding.</div>
+        <label style="font-size:0.83rem; color:#ccc; display:block; margin-bottom:6px;">Confirmation statement:</label>
+        <textarea id="esc-day30-confirm" rows="3" placeholder="e.g. Criteria reviewed at 30 days. Improvement has persisted. No positive confounders identified. Seasonal and activity changes accounted for." style="width:100%; background:#1a1a1c; border:1px solid #333; border-radius:8px; color:#fff; padding:10px 12px; font-size:0.85rem; line-height:1.5; resize:vertical; box-sizing:border-box;"></textarea>
+      </div>
+    </div>
+
+    <!-- Section C: Status -->
+    <div id="esc-status-block" style="border-radius:12px; border:1px solid #333; padding:14px 18px; margin-bottom:20px; text-align:center;">
+      <div style="font-size:0.75rem; color:#666; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.05em;">Status</div>
+      <div id="esc-status-text" style="font-size:1rem; font-weight:700; color:#aaa;">&#8212; Complete gate conditions above &#8212;</div>
+    </div>
+
+    <!-- Prior reviews -->
+    <div id="esc-history-block" style="display:none; margin-bottom:20px;">
+      <h3 style="font-size:0.85rem; color:#666; margin:0 0 10px 0; text-transform:uppercase; letter-spacing:0.05em;">Prior Reviews</h3>
+      <div id="esc-history-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+
+    <button onclick="window.saveEscalationReview()" type="button" style="width:100%; padding:14px; background:#000; border:1px solid #333; border-radius:12px; color:#fff; font-size:0.95rem; font-weight:600; cursor:pointer;">Save Review Record</button>
+    <div id="esc-save-feedback" style="text-align:center; font-size:0.8rem; color:#30d158; margin-top:8px; min-height:18px;"></div>
+    <button onclick="window.resetEscalationReview()" type="button" style="width:100%; padding:10px; background:transparent; border:1px solid #3a1a1a; border-radius:10px; color:#ff453a; font-size:0.8rem; cursor:pointer; margin-top:8px;">Reset / Clear History</button>
+  </div>
+</div>
+</div><!-- /escalation-modal -->
 
 <!-- ── AI Q&A Modal ────────────────────────────────────── -->
 <div aria-modal="true" class="app-modal" id="ai-qa-modal" role="dialog" style="display:none;">
@@ -2922,10 +3354,12 @@ Persistent background information about your condition. Written once, updated as
 <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Rate your emotional and cognitive state today. Tracked separately to cross-validate physical symptom trends.</div>
 <div class="slider-header"><label>Mood (10 = Best)</label><span class="slider-val">5</span></div>
 <input id="p-ps-mood" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
-<div class="slider-header"><label>Anxiety (10 = Most anxious)</label><span class="slider-val">5</span></div>
+<div class="slider-header"><label>Anxiety (10 = None / Calm)</label><span class="slider-val">5</span></div>
 <input id="p-ps-anxiety" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
-<div class="slider-header"><label>Cognitive load / Mental effort (10 = Heaviest)</label><span class="slider-val">5</span></div>
+<div style="font-size:0.72rem; color:#666; font-style:italic; margin-top:2px; margin-bottom:8px;">Scale corrected March 2026 — higher = calmer, consistent with all other sliders</div>
+<div class="slider-header"><label>Cognitive load / Mental effort (10 = Clearest / Least effort)</label><span class="slider-val">5</span></div>
 <input id="p-ps-cognitive-load" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
+<div style="font-size:0.72rem; color:#666; font-style:italic; margin-top:2px; margin-bottom:8px;">Scale corrected March 2026 — higher = clearest / least effort, consistent with all other sliders</div>
 <div class="input-group" style="margin-top:12px;">
 <label>Sense of agency — feeling in control of your health today</label>
 <select class="select" id="p-ps-agency" style="margin-top:8px;">
@@ -3180,6 +3614,7 @@ Persistent background information about your condition. Written once, updated as
 <label>Notes</label>
 <textarea id="ft-notes" placeholder="Spasticity level, sleep quality, pain, anything that affected the test..." rows="2"></textarea>
 </div>
+<button id="ft-dedup-btn" onclick="window.cleanupDuplicateFunctionalTests()" type="button" style="display:none; font-size:0.75rem; padding:6px 12px; background:#c0392b; color:#fff; border:none; border-radius:6px; cursor:pointer; margin-bottom:12px;">REMOVE DUPLICATE TEST ENTRIES</button>
 <div class="history-list" id="ft-history-list"></div>
 </div>
 </details>
@@ -3245,6 +3680,14 @@ Persistent background information about your condition. Written once, updated as
   <span class="ai-key-link" onclick="window.openAIKeyModal()">API key settings</span>
 </div>
 </div>
+
+<!-- Protocol Signal Review Card -->
+<div class="card" id="signal-review-card">
+<h3 style="display:flex; align-items:center; gap:8px;">Protocol Signal Review <span style="font-size:0.75rem; color:#38bdf8; font-weight:600; letter-spacing:0.04em;">CLAUDE</span></h3>
+<p style="font-size:0.85rem; color:#888; line-height:1.5; margin-top:0;">Structured AI assessment of your full longitudinal dataset against Governance Protocol escalation criteria. Reviews are tiered by checkpoint and saved to your record.</p>
+<div id="signal-review-buttons" style="display:flex; flex-direction:column; gap:10px; margin-top:12px;"></div>
+
+</div>
 <div id="trends-charts-pane" style="display:none;">
 <div class="card"><h3>Global Baseline Rating</h3><canvas height="180" id="chart-global"></canvas></div>
 <div class="card"><h3>Energy / Capacity (0–10)</h3><canvas height="180" id="chart-energy"></canvas></div>
@@ -3254,6 +3697,9 @@ Persistent background information about your condition. Written once, updated as
 <div class="card"><h3>Leg Stiffness (0–10)</h3><canvas height="180" id="chart-leg-stiffness"></canvas></div>
 <div class="card"><h3>Brain Fog (0–10)</h3><canvas height="180" id="chart-brain-fog"></canvas></div>
 <div class="card"><h3>Neurologic Fatigue (0–10)</h3><canvas height="180" id="chart-neuro-fatigue"></canvas></div>
+<div class="card"><h3>6-Minute Walk Distance (m)</h3><canvas height="180" id="chart-6mw"></canvas></div>
+<div class="card"><h3>Timed 25-Foot Walk — Average (s)</h3><canvas height="180" id="chart-t25fw"></canvas></div>
+<div class="card"><h3>Sit-to-Stand 5x Time (s)</h3><canvas height="180" id="chart-sts"></canvas></div>
 </div>
 <div id="trends-details-pane" style="display:none;">
 <div class="card">
@@ -3487,6 +3933,21 @@ Persistent background information about your condition. Written once, updated as
         // Sync phase tracker start date from Firestore on login
         if (user && typeof window.__phaseTrackerSyncFromFirestore === 'function') {
           window.__phaseTrackerSyncFromFirestore();
+        }
+        if (user) {
+          setTimeout(async () => {
+            // Show de-duplication button only if old-format duplicate test entries exist
+            try {
+              const uid = window.CURRENT_UID;
+              if (uid) {
+                const testsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent("patrick")}/tests`);
+                const snap = await testsRef.get();
+                const hasDups = snap.docs.some(d => /^\d{4}-\d{2}-\d{2}_\d{10,}$/.test(d.id));
+                const dedupBtn = document.getElementById("ft-dedup-btn");
+                if (dedupBtn && hasDups) dedupBtn.style.display = "inline-block";
+              }
+            } catch(e) { /* non-fatal — button stays hidden */ }
+          }, 350);
         }
       });
 
@@ -3876,6 +4337,16 @@ Persistent background information about your condition. Written once, updated as
         return snapshot.docs.map((d) => d.data());
       }
 
+      async function fetchAllPatientLogs(patientId, dir = "desc") {
+        const q = db.collection(userProfilePath(patientId, "logs")).orderBy("date", dir);
+        const snapshot = await q.get();
+        return snapshot.docs.map((d) => d.data());
+      }
+
+      // Expose unified fetch functions globally for use in other script blocks
+      window.fetchPatientLogsInRange = fetchPatientLogsInRange;
+      window.fetchAllPatientLogs = fetchAllPatientLogs;
+
       async function fetchPatientLogs(patientId, days = 30) {
         const q = db.collection(userProfilePath(patientId, "logs")).orderBy("date", "desc").limit(days);
         const snapshot = await q.get();
@@ -4131,8 +4602,8 @@ Persistent background information about your condition. Written once, updated as
             ["volatility",     "Symptom volatility",    l => l.symptom_drift?.symptom_volatility, false],
             ["pain",           "Pain impact",           l => l.pain_impact?.severity, false],
             ["ps_mood",        "Mood",                  l => l.psychological_state?.mood, true],
-            ["ps_anxiety",     "Anxiety",               l => l.psychological_state?.anxiety, false],
-            ["ps_cog_load",    "Cognitive load",        l => l.psychological_state?.cognitive_load, false],
+            ["ps_anxiety",     "Anxiety",               l => l.psychological_state?.anxiety, true],
+            ["ps_cog_load",    "Cognitive load",        l => l.psychological_state?.cognitive_load, true],
             ["ps_agency",      "Sense of agency",       l => ({low:2,medium:5,high:9})[l.psychological_state?.sense_of_agency] ?? null, true],
           ];
 
@@ -4185,6 +4656,28 @@ Persistent background information about your condition. Written once, updated as
             const cnt = chronoLogs.filter(l => l.context_changes?.[key] === true).length;
             return { label, count: cnt, pct: n ? Math.round(cnt / n * 100) : 0 };
           }).filter(r => r.count > 0);
+
+          // Confounder day counts (for summary block)
+          const negConfDays = chronoLogs.filter(l => {
+            const cc = l.context_changes || {};
+            return cc.poor_sleep_last_night === true
+              || cc.unusual_physical_exertion === true
+              || cc.medication_timing_change === true
+              || cc.dose_change === true
+              || cc.missed_dose === true
+              || cc.new_supplement_added === true
+              || cc.new_medication_added === true
+              || cc.infection_symptoms === true
+              || cc.gi_upset_or_dehydration_risk === true
+              || cc.travel_or_disrupted_schedule === true
+              || (cc.high_stress !== undefined && cc.high_stress !== null && Number(cc.high_stress) > 0);
+          }).length;
+          const posConfDays = chronoLogs.filter(l => {
+            const cc = l.context_changes || {};
+            return cc.pos_conf_exercise === true
+              || cc.pos_conf_lowstress === true
+              || cc.pos_conf_seasonal === true;
+          }).length;
 
           // Functional test delta (first vs last) + full timeline
           const allTests = chronoLogs.flatMap(l => Array.isArray(l.functional_tests) ? l.functional_tests : [])
@@ -4258,6 +4751,16 @@ Persistent background information about your condition. Written once, updated as
                 <td style="padding:5px 8px;">${r.count} / ${n} days</td>
                 <td style="padding:5px 8px; color:#888;">${r.pct}%</td>
               </tr>`).join("")}
+              <tr style="background:#f0f0f5; border-top:1px solid #ddd;">
+                <td style="padding:5px 8px; font-style:italic; color:#555;">Days with negative confounders logged</td>
+                <td style="padding:5px 8px; font-style:italic; color:#555;">${negConfDays} / ${n} days</td>
+                <td style="padding:5px 8px; color:#888;">${n ? Math.round(negConfDays/n*100) : 0}%</td>
+              </tr>
+              <tr style="background:#f5f5f0; border-top:1px solid #ddd;">
+                <td style="padding:5px 8px; font-style:italic; color:#555;">Days with positive confounders logged</td>
+                <td style="padding:5px 8px; font-style:italic; color:#555;">${posConfDays} / ${n} days</td>
+                <td style="padding:5px 8px; color:#888;">${n ? Math.round(posConfDays/n*100) : 0}%</td>
+              </tr>
             </table>
 
             ${confRows.length ? `
@@ -4403,6 +4906,101 @@ Persistent background information about your condition. Written once, updated as
             }
           }
 
+          // ── Protocol Signal Review (most recent saved) ────────────────
+          let signalReviewHtml = "";
+          if (opts?.includeSignalReview) {
+            try {
+              const saved = JSON.parse(localStorage.getItem('amn_signal_reviews') || '{}');
+              // Find most recently saved review across all checkpoints
+              const allSaved = Object.entries(saved).filter(([,v]) => v && v.text);
+              if (allSaved.length) {
+                // Pick the highest-checkpoint saved review
+                const cpOrder = ['sr_12m','sr_9m','sr_6m','sr_3m'];
+                const best = cpOrder.map(id => ({ id, data: saved[id] })).find(x => x.data);
+                if (best) {
+                  const cpLabel = { sr_3m: '3-Month Signal Check', sr_6m: '6-Month Signal Check', sr_9m: '9-Month Signal Check', sr_12m: '12-Month Escalation Review' }[best.id] || best.id;
+                  signalReviewHtml = `
+                  <div style="background:#f0fff4; border:2px solid #22c55e; border-radius:10px; padding:18px; margin-bottom:28px; page-break-before:always; page-break-inside:avoid;">
+                    <div style="font-size:14px; font-weight:800; color:#1a7a2e; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">
+                      Protocol Signal Review — ${cpLabel}
+                    </div>
+                    <div style="font-size:10px; color:#888; margin-bottom:10px;">Review date: ${best.data.date || 'N/A'}</div>
+                    <div style="font-size:12px; color:#222; line-height:1.75; white-space:pre-wrap;">${best.data.text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+                  </div>`;
+                }
+              }
+            } catch(srErr) { console.warn('Signal review export failed (non-fatal):', srErr); }
+          }
+
+          // ── Baseline Variability Reference Page ───────────────────────
+          let baselineVariabilityHtml = "";
+          if (opts?.includeBaselineVariability) {
+            try {
+              const blStart = localStorage.getItem('amn_baseline_start_date') || '';
+              const naStart = localStorage.getItem('amn_na_start_date') || '';
+              // Use all logs if no NA start; otherwise baseline period only
+              const baseLogs = (blStart && naStart)
+                ? chronoLogs.filter(l => l.date >= blStart && l.date < naStart)
+                : (blStart ? chronoLogs.filter(l => l.date >= blStart) : chronoLogs);
+
+              const _bvAvg = (arr) => { const ns = arr.filter(v => v !== null && v !== undefined && Number.isFinite(Number(v))).map(Number); return ns.length ? (ns.reduce((a,b)=>a+b,0)/ns.length).toFixed(1) : 'N/A'; };
+              const _bvMin = (arr) => { const ns = arr.filter(v => v !== null && v !== undefined && Number.isFinite(Number(v))).map(Number); return ns.length ? Math.min(...ns) : 'N/A'; };
+              const _bvMax = (arr) => { const ns = arr.filter(v => v !== null && v !== undefined && Number.isFinite(Number(v))).map(Number); return ns.length ? Math.max(...ns) : 'N/A'; };
+              const _bvN   = (arr) => arr.filter(v => v !== null && v !== undefined && Number.isFinite(Number(v))).length;
+
+              const bvMetrics = [
+                ['Global Baseline (1–5)',         baseLogs.map(l => ({much_worse:1,worse:2,slightly_worse:2.5,baseline:3,same:3,slightly_better:3.5,better:4,much_better:5})[l.baseline_rating] ?? null)],
+                ['Energy / Capacity (0–10)',       baseLogs.map(l => l.energy_capacity ?? null)],
+                ['Pain Impact (0–10)',             baseLogs.map(l => l.pain_impact?.severity ?? null)],
+                ['Sleep Quality (0–10)',           baseLogs.map(l => l.symptom_drift?.sleep_quality ?? null)],
+                ['Brain Fog (0–10)',               baseLogs.map(l => l.symptom_drift?.brain_fog ?? null)],
+                ['Gait Effort (0–10)',             baseLogs.map(l => l.symptom_drift?.step_gait_effort ?? null)],
+                ['Sustained Walking Effort (0–10)',baseLogs.map(l => l.symptom_drift?.sustained_walking_effort ?? null)],
+                ['Neurologic Fatigue (0–10)',      baseLogs.map(l => l.symptom_drift?.neurologic_fatigue ?? null)],
+                ['Leg Stiffness (0–10)',           baseLogs.map(l => l.symptom_drift?.leg_stiffness ?? null)],
+                ['Post-Rest Stiffness (0–10)',     baseLogs.map(l => l.symptom_drift?.post_rest_stiffness ?? null)],
+                ['Mood (0–10)',                    baseLogs.map(l => l.psychological_state?.mood ?? null)],
+                ['Anxiety (0–10)',                 baseLogs.map(l => l.psychological_state?.anxiety ?? null)],
+                ['Cognitive Load (0–10)',          baseLogs.map(l => l.psychological_state?.cognitive_load ?? null)],
+              ];
+
+              const bvRows = bvMetrics.map(([label, vals]) => {
+                const n = _bvN(vals);
+                if (!n) return null;
+                return { label, n, mean: _bvAvg(vals), min: _bvMin(vals), max: _bvMax(vals) };
+              }).filter(Boolean);
+
+              if (bvRows.length) {
+                const bvPeriod = blStart && naStart
+                  ? `${blStart} to ${naStart} (baseline period, ${baseLogs.length} days logged)`
+                  : `${baseLogs.length} days logged`;
+                baselineVariabilityHtml = `
+                <div style="page-break-before:always; background:#f7f7fa; border:2px solid #22c55e; border-radius:10px; padding:18px; margin-bottom:28px;">
+                  <div style="font-size:15px; font-weight:800; color:#1a7a2e; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Baseline Variability Reference</div>
+                  <div style="font-size:11px; color:#888; margin-bottom:14px;">Period: ${bvPeriod}. This document serves as the formal reference range for escalation decisions.</div>
+                  <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                    <tr style="background:#e8e8f0; font-weight:700;">
+                      <td style="padding:5px 8px;">Metric</td>
+                      <td style="padding:5px 8px; text-align:center;">Mean</td>
+                      <td style="padding:5px 8px; text-align:center;">Min</td>
+                      <td style="padding:5px 8px; text-align:center;">Max</td>
+                      <td style="padding:5px 8px; text-align:center;">N</td>
+                    </tr>
+                    ${bvRows.map((r,i) => `
+                    <tr style="background:${i%2===0?"#fff":"#f5f5f8"};">
+                      <td style="padding:5px 8px;">${r.label}</td>
+                      <td style="padding:5px 8px; text-align:center; font-weight:700;">${r.mean}</td>
+                      <td style="padding:5px 8px; text-align:center; color:#888;">${r.min}</td>
+                      <td style="padding:5px 8px; text-align:center; color:#888;">${r.max}</td>
+                      <td style="padding:5px 8px; text-align:center; color:#999;">${r.n}</td>
+                    </tr>`).join("")}
+                  </table>
+                  <div style="margin-top:10px; font-size:10px; color:#999;">Functional test baseline ranges are tracked separately in the functional test records. This table covers daily symptom tracking metrics only.</div>
+                </div>`;
+              }
+            } catch(bvErr) { console.warn('Baseline variability export failed (non-fatal):', bvErr); }
+          }
+
           let html = `
             <div class="report-header">
               <p class="report-credit">Researched and Prepared by Patrick Shipp Nutrition, RNCP | www.patrickshipp.com</p>
@@ -4413,6 +5011,8 @@ Persistent background information about your condition. Written once, updated as
             </div>
             ${medicalContextHtml}
             ${narrativeHtml}
+            ${signalReviewHtml}
+            ${baselineVariabilityHtml}
             ${summaryHtml}`;
 
           logs.forEach(log => {
@@ -4655,7 +5255,9 @@ Persistent background information about your condition. Written once, updated as
           patientName: args.patientName || "",
           patientDob: args.patientDob || "",
           includeMedicalContext: args.includeMedicalContext || false,
-          includeAINarrative: args.includeAINarrative || false
+          includeAINarrative: args.includeAINarrative || false,
+          includeSignalReview: args.includeSignalReview || false,
+          includeBaselineVariability: args.includeBaselineVariability || false
         };
         await exportProtocolReport(patientId, opts);
       };
@@ -4887,6 +5489,112 @@ Persistent background information about your condition. Written once, updated as
         }
       };
 
+      // Deletes old-format test docs (date_timestamp) that were created before
+      // the ID was fixed to use just the date. Safe to run more than once.
+      window.cleanupDuplicateFunctionalTests = async function() {
+        const btn = document.getElementById("ft-dedup-btn");
+        try {
+          btn.disabled = true;
+          btn.textContent = "SCANNING...";
+          const uid = window.CURRENT_UID;
+          if (!uid) throw new Error("Not authenticated");
+          const testsRef = db.collection(`users/${uid}/profiles/${encodeURIComponent("patrick")}/tests`);
+          const snap = await testsRef.get();
+          // Old IDs look like "2026-03-21_1742512345678" — date + underscore + 13-digit ms timestamp
+          const oldDocs = snap.docs.filter(d => /^\d{4}-\d{2}-\d{2}_\d{10,}$/.test(d.id));
+          if (oldDocs.length === 0) {
+            btn.textContent = "NO DUPLICATES FOUND";
+            setTimeout(() => { btn.disabled = false; btn.textContent = "REMOVE DUPLICATE TEST ENTRIES"; }, 2000);
+            return;
+          }
+          btn.textContent = `DELETING ${oldDocs.length}...`;
+          const batch = db.batch();
+          oldDocs.forEach(d => batch.delete(d.ref));
+          await batch.commit();
+          btn.textContent = `DELETED ${oldDocs.length} ✓`;
+          setTimeout(() => { btn.disabled = false; btn.textContent = "REMOVE DUPLICATE TEST ENTRIES"; }, 2500);
+        } catch(e) {
+          console.error(e);
+          if (btn) { btn.disabled = false; btn.textContent = "REMOVE DUPLICATE TEST ENTRIES"; }
+          alert("Cleanup failed: " + (e.message || e));
+        }
+      };
+
+      // ── SCALE INVERSION MIGRATION (run once) ──────────────────────────────
+      // Inverts stored anxiety and cognitive_load values: corrected = 10 - stored
+      // Guards against double-run with localStorage flag.
+      window.runAnxietyCogLoadMigration = async function() {
+        const MIGRATION_KEY = 'amn_anxiety_cogload_migration_v1_done';
+        const btn = document.getElementById('migration-run-btn');
+        const out = document.getElementById('migration-output');
+        const setOut = (msg) => { if (out) out.textContent = msg; };
+
+        if (localStorage.getItem(MIGRATION_KEY) === 'true') {
+          setOut('Migration already completed — skipping. Remove localStorage key amn_anxiety_cogload_migration_v1_done to re-run.');
+          return;
+        }
+
+        const uid = window.CURRENT_UID;
+        if (!uid) { setOut('Error: not authenticated.'); return; }
+
+        if (btn) { btn.disabled = true; btn.textContent = 'RUNNING…'; }
+        setOut('Fetching logs…');
+
+        try {
+          const logsRef = db.collection(`users/${uid}/profiles/patrick/logs`);
+          const snap = await logsRef.get();
+          if (snap.empty) { setOut('No logs found — nothing to migrate.'); if (btn) { btn.disabled = false; btn.textContent = 'RUN MIGRATION'; } return; }
+
+          let updatedCount = 0;
+          let skippedCount = 0;
+          const BATCH_SIZE = 400;
+          let batch = db.batch();
+          let opsInBatch = 0;
+
+          for (const doc of snap.docs) {
+            const data = doc.data();
+            const ps = data.psychological_state;
+            if (!ps) { skippedCount++; continue; }
+
+            const updates = {};
+            let needsUpdate = false;
+
+            if (ps.anxiety !== null && ps.anxiety !== undefined && ps.anxiety !== '') {
+              const v = Number(ps.anxiety);
+              if (Number.isFinite(v)) { updates['psychological_state.anxiety'] = 10 - v; needsUpdate = true; }
+            }
+            if (ps.cognitive_load !== null && ps.cognitive_load !== undefined && ps.cognitive_load !== '') {
+              const v = Number(ps.cognitive_load);
+              if (Number.isFinite(v)) { updates['psychological_state.cognitive_load'] = 10 - v; needsUpdate = true; }
+            }
+
+            if (!needsUpdate) { skippedCount++; continue; }
+
+            batch.update(doc.ref, updates);
+            updatedCount++;
+            opsInBatch++;
+
+            if (opsInBatch >= BATCH_SIZE) {
+              await batch.commit();
+              batch = db.batch();
+              opsInBatch = 0;
+              setOut(`Migrating… ${updatedCount} docs updated so far`);
+            }
+          }
+
+          if (opsInBatch > 0) await batch.commit();
+
+          localStorage.setItem(MIGRATION_KEY, 'true');
+          setOut(`✓ Migration complete — ${updatedCount} log(s) updated, ${skippedCount} skipped (no anxiety/cognitive_load data). Scale inversion applied: corrected = 10 − stored.`);
+          if (btn) { btn.textContent = 'MIGRATION COMPLETE ✓'; }
+          console.log(`[Migration] anxiety/cognitive_load inversion: ${updatedCount} updated, ${skippedCount} skipped`);
+        } catch (e) {
+          console.error('[Migration] failed:', e);
+          setOut('Migration failed: ' + (e.message || e));
+          if (btn) { btn.disabled = false; btn.textContent = 'RUN MIGRATION'; }
+        }
+      };
+
       window.handleLabSave = async function() {
         setBtn("lab-save-results-btn", true, "SAVING...");
         try {
@@ -4942,18 +5650,67 @@ Persistent background information about your condition. Written once, updated as
       window._trendCharts = window._trendCharts || {};
       function _destroyTrendChart(key){ try { if(window._trendCharts[key]){ window._trendCharts[key].destroy(); delete window._trendCharts[key]; } } catch(e){} }
 
-      function _buildLineChart(canvasId, labels, data, yMin, yMax, seriesLabel){
+      // bandMin/bandMax: if provided (after NA start date is locked), draw baseline variability band
+      function _buildLineChart(canvasId, labels, data, yMin, yMax, seriesLabel, refValue, refLabel, bandMin, bandMax){
         const canvas = document.getElementById(canvasId);
         if(!canvas) return;
         const ctx = canvas.getContext("2d");
         _destroyTrendChart(canvasId);
+        const datasets = [{ label: seriesLabel, data, tension: 0.25, spanGaps: false, pointRadius: 3, order: 0 }];
+        // Baseline variability band (only shown when NA start date is locked)
+        if(bandMin != null && bandMax != null && labels.length > 0){
+          // Shaded band — upper boundary with fill to lower
+          datasets.push({
+            label: "Baseline range",
+            data: labels.map(() => bandMax),
+            borderColor: "rgba(120,120,140,0.3)",
+            borderWidth: 1,
+            backgroundColor: "rgba(120,120,140,0.12)",
+            pointRadius: 0,
+            tension: 0,
+            spanGaps: true,
+            fill: "+1",
+            order: 3
+          });
+          datasets.push({
+            label: "_band_lower",
+            data: labels.map(() => bandMin),
+            borderColor: "rgba(120,120,140,0.3)",
+            borderWidth: 1,
+            backgroundColor: "rgba(120,120,140,0.12)",
+            pointRadius: 0,
+            tension: 0,
+            spanGaps: true,
+            fill: false,
+            order: 3
+          });
+        }
+        if(refValue != null && labels.length > 0){
+          datasets.push({
+            label: refLabel || "Baseline mean",
+            data: labels.map(() => refValue),
+            borderColor: "rgba(160,160,180,0.7)",
+            borderWidth: 1.5,
+            borderDash: [6, 4],
+            pointRadius: 0,
+            tension: 0,
+            spanGaps: true,
+            fill: false,
+            order: 2
+          });
+        }
         window._trendCharts[canvasId] = new Chart(ctx, {
           type: "line",
-          data: { labels, datasets: [{ label: seriesLabel, data, tension: 0.25, spanGaps: false, pointRadius: 3 }] },
+          data: { labels, datasets },
           options: {
             responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: true } },
-            scales: { y: { min: yMin, max: yMax, ticks: { stepSize: 1 } }, x: { ticks: { maxRotation: 0, autoSkip: true } } }
+            plugins: {
+              legend: {
+                display: true,
+                labels: { filter: (item) => !item.text.startsWith('_') }
+              }
+            },
+            scales: { y: { min: yMin, max: yMax, ticks: { stepSize: 1 } }, x: { ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: 12, callback: function(val, i, ticks) { const raw = this.getLabelForValue(val); const d = new Date(raw + 'T00:00:00'); return isNaN(d) ? raw : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); } } } }
           }
         });
       }
@@ -4971,19 +5728,145 @@ Persistent background information about your condition. Written once, updated as
       function _getPainSeverity(log){ if(log?.pain_impact?.severity != null) return _num(log.pain_impact.severity); return null; }
       function _getSymptom(log, key){ if(log?.symptom_drift?.[key] != null) return _num(log.symptom_drift[key]); return null; }
 
+      // Helper: compute mean/min/max for an array of values
+      function _bandStats(vals) {
+        const ns = vals.filter(v => v !== null && v !== undefined && Number.isFinite(Number(v))).map(Number);
+        if (!ns.length) return null;
+        const mean = ns.reduce((a,b) => a+b, 0) / ns.length;
+        return { mean: +mean.toFixed(2), min: Math.min(...ns), max: Math.max(...ns) };
+      }
+
       window.renderTrendsCharts = async function() {
         try {
-          const logs = await fetchPatientLogs("patrick", 30);
+          const logs = await fetchPatientLogs("patrick", 730);
           const ordered = [...logs].sort((a,b) => String(a.date||"").localeCompare(String(b.date||"")));
           const labels = ordered.map(l => l.date || "");
-          _buildLineChart("chart-global", labels, ordered.map(l => _mapBaselineTo15(l.baseline_rating)), 1, 5, "Global baseline (1–5)");
-          _buildLineChart("chart-energy", labels, ordered.map(l => _num(l.energy_capacity)), 0, 10, "Energy / Capacity (0–10)");
-          _buildLineChart("chart-pain", labels, ordered.map(l => _getPainSeverity(l)), 0, 10, "Pain impact (0–10)");
-          _buildLineChart("chart-sleep", labels, ordered.map(l => _getSymptom(l,"sleep_quality")), 0, 10, "Sleep quality (0–10)");
-          _buildLineChart("chart-gait-effort", labels, ordered.map(l => _getSymptom(l,"step_gait_effort")), 0, 10, "Gait effort (0–10)");
-          _buildLineChart("chart-leg-stiffness", labels, ordered.map(l => _getSymptom(l,"leg_stiffness")), 0, 10, "Leg stiffness (0–10)");
-          _buildLineChart("chart-brain-fog", labels, ordered.map(l => _getSymptom(l,"brain_fog")), 0, 10, "Brain fog (0–10)");
-          _buildLineChart("chart-neuro-fatigue", labels, ordered.map(l => _getSymptom(l,"neurologic_fatigue")), 0, 10, "Neurologic fatigue (0–10)");
+
+          // NA start date — bands only shown after this is locked
+          const naStart = localStorage.getItem("amn_na_start_date") || "";
+          const blStart = localStorage.getItem("amn_baseline_start_date") || "";
+
+          // Read sealed baseline snapshot for reference lines (single-value ref)
+          let bSnap = null;
+          try {
+            const snaps = JSON.parse(localStorage.getItem("amn_baseline_snapshots_v1") || "[]");
+            const sealed = snaps.filter(s => s.locked);
+            if(sealed.length) bSnap = sealed[sealed.length - 1].data || {};
+          } catch(e) {}
+          const bNum = (key) => { if(!bSnap) return null; const v = Number(bSnap[key]); return Number.isFinite(v) ? v : null; };
+
+          // Compute variability bands from baseline period logs (only when NA start is locked)
+          let bandData = {};
+          if (naStart && blStart) {
+            const baseLogs = ordered.filter(l => l.date >= blStart && l.date < naStart);
+            const bs = (getter) => _bandStats(baseLogs.map(getter));
+            bandData = {
+              global:    bs(l => _mapBaselineTo15(l.baseline_rating)),
+              energy:    bs(l => _num(l.energy_capacity)),
+              pain:      bs(l => _getPainSeverity(l)),
+              sleep:     bs(l => _getSymptom(l,"sleep_quality")),
+              gait:      bs(l => _getSymptom(l,"step_gait_effort")),
+              stiffness: bs(l => _getSymptom(l,"leg_stiffness")),
+              fog:       bs(l => _getSymptom(l,"brain_fog")),
+              fatigue:   bs(l => _getSymptom(l,"neurologic_fatigue")),
+            };
+          }
+          const band = (key) => bandData[key] ? [bandData[key].min, bandData[key].max] : [null, null];
+          const bandMean = (key, fallback) => bandData[key] ? bandData[key].mean : fallback;
+
+          // Global: "baseline" maps to 3 on the 1–5 scale
+          const [gMin, gMax] = band("global");
+          _buildLineChart("chart-global", labels, ordered.map(l => _mapBaselineTo15(l.baseline_rating)), 1, 5, "Global baseline (1–5)",
+            bandMean("global", 3), naStart ? "Baseline mean" : "No change from start", gMin, gMax);
+
+          // Energy & pain
+          const eRef = bNum("energy_num");
+          const [eMin, eMax] = band("energy");
+          _buildLineChart("chart-energy", labels, ordered.map(l => _num(l.energy_capacity)), 0, 10, "Energy / Capacity (0–10)",
+            bandMean("energy", eRef), naStart ? "Baseline mean" : (eRef != null ? "Sealed baseline (" + eRef + "/10)" : null), eMin, eMax);
+
+          const pRef = bNum("pain_num");
+          const [pMin, pMax] = band("pain");
+          _buildLineChart("chart-pain", labels, ordered.map(l => _getPainSeverity(l)), 0, 10, "Pain impact (0–10)",
+            bandMean("pain", pRef), naStart ? "Baseline mean" : (pRef != null ? "Sealed baseline (" + pRef + "/10)" : null), pMin, pMax);
+
+          // Symptom fields
+          const sleepRef = bNum("sleep_num");
+          const [slMin, slMax] = band("sleep");
+          _buildLineChart("chart-sleep", labels, ordered.map(l => _getSymptom(l,"sleep_quality")), 0, 10, "Sleep quality (0–10)",
+            bandMean("sleep", sleepRef ?? 5), naStart ? "Baseline mean" : (sleepRef != null ? "Sealed baseline (" + sleepRef + "/10)" : "Baseline (5/10)"), slMin, slMax);
+
+          const gaitRef = bNum("gait_step_num");
+          const [gaMin, gaMax] = band("gait");
+          _buildLineChart("chart-gait-effort", labels, ordered.map(l => _getSymptom(l,"step_gait_effort")), 0, 10, "Gait effort (0–10)",
+            bandMean("gait", gaitRef ?? 5), naStart ? "Baseline mean" : (gaitRef != null ? "Sealed baseline (" + gaitRef + "/10)" : "Baseline (5/10)"), gaMin, gaMax);
+
+          const stiffRef = bNum("leg_stiff_num");
+          const [stMin, stMax] = band("stiffness");
+          _buildLineChart("chart-leg-stiffness", labels, ordered.map(l => _getSymptom(l,"leg_stiffness")), 0, 10, "Leg stiffness (0–10)",
+            bandMean("stiffness", stiffRef ?? 5), naStart ? "Baseline mean" : (stiffRef != null ? "Sealed baseline (" + stiffRef + "/10)" : "Baseline (5/10)"), stMin, stMax);
+
+          const fogRef = bNum("brain_fog_num");
+          const [foMin, foMax] = band("fog");
+          _buildLineChart("chart-brain-fog", labels, ordered.map(l => _getSymptom(l,"brain_fog")), 0, 10, "Brain fog (0–10)",
+            bandMean("fog", fogRef ?? 5), naStart ? "Baseline mean" : (fogRef != null ? "Sealed baseline (" + fogRef + "/10)" : "Baseline (5/10)"), foMin, foMax);
+
+          const fatigueRef = bNum("neuro_fatigue_num");
+          const [nfMin, nfMax] = band("fatigue");
+          _buildLineChart("chart-neuro-fatigue", labels, ordered.map(l => _getSymptom(l,"neurologic_fatigue")), 0, 10, "Neurologic fatigue (0–10)",
+            bandMean("fatigue", fatigueRef ?? 5), naStart ? "Baseline mean" : (fatigueRef != null ? "Sealed baseline (" + fatigueRef + "/10)" : "Baseline (5/10)"), nfMin, nfMax);
+
+          // ── Functional test charts (from tests collection) ───────────────
+          try {
+            const uid = window.CURRENT_UID;
+            if (uid) {
+              const testsSnap = await db.collection(`users/${uid}/profiles/patrick/tests`).orderBy("test_date", "asc").get();
+              const tests = testsSnap.docs.map(d => d.data()).filter(t => t.test_date);
+
+              const ftLabels = tests.map(t => t.test_date);
+              const ftDist   = tests.map(t => _num(t.six_minute_walk?.calculated_distance_m ?? t.six_minute_walk?.distance_m));
+              const ftT25    = tests.map(t => _num(t.timed_25fw?.average_seconds));
+              const ftSTS    = tests.map(t => _num(t.sit_to_stand_5x?.time_seconds));
+
+              // Baseline bands for functional tests (when NA start locked)
+              let ft6mBand = [null, null], ft6mMean = null;
+              let ftT25Band = [null, null], ftT25Mean = null;
+              let ftSTSBand = [null, null], ftSTSMean = null;
+              if (naStart && blStart) {
+                const baseTests = tests.filter(t => t.test_date >= blStart && t.test_date < naStart);
+                const s6m  = _bandStats(baseTests.map(t => _num(t.six_minute_walk?.calculated_distance_m ?? t.six_minute_walk?.distance_m)));
+                const sT25 = _bandStats(baseTests.map(t => _num(t.timed_25fw?.average_seconds)));
+                const sSTS = _bandStats(baseTests.map(t => _num(t.sit_to_stand_5x?.time_seconds)));
+                if (s6m)  { ft6mBand = [s6m.min, s6m.max];   ft6mMean  = s6m.mean; }
+                if (sT25) { ftT25Band = [sT25.min, sT25.max]; ftT25Mean = sT25.mean; }
+                if (sSTS) { ftSTSBand = [sSTS.min, sSTS.max]; ftSTSMean = sSTS.mean; }
+              }
+
+              const allDist = ftDist.filter(v => v !== null);
+              const allT25  = ftT25.filter(v => v !== null);
+              const allSTS  = ftSTS.filter(v => v !== null);
+
+              if (allDist.length) {
+                const yMin = Math.max(0, Math.min(...allDist) - 50);
+                const yMax = Math.max(...allDist) + 50;
+                _buildLineChart("chart-6mw", ftLabels, ftDist, yMin, yMax, "6MW Distance (m)",
+                  ft6mMean, naStart ? "Baseline mean" : null, ft6mBand[0], ft6mBand[1]);
+              }
+              if (allT25.length) {
+                const yMin = Math.max(0, Math.min(...allT25) - 2);
+                const yMax = Math.max(...allT25) + 2;
+                _buildLineChart("chart-t25fw", ftLabels, ftT25, yMin, yMax, "T25FW Average (s)",
+                  ftT25Mean, naStart ? "Baseline mean" : null, ftT25Band[0], ftT25Band[1]);
+              }
+              if (allSTS.length) {
+                const yMin = Math.max(0, Math.min(...allSTS) - 5);
+                const yMax = Math.max(...allSTS) + 5;
+                _buildLineChart("chart-sts", ftLabels, ftSTS, yMin, yMax, "STS 5x Time (s)",
+                  ftSTSMean, naStart ? "Baseline mean" : null, ftSTSBand[0], ftSTSBand[1]);
+              }
+            }
+          } catch(ftErr) { console.warn("Functional test charts failed (non-fatal):", ftErr); }
+
           setTimeout(() => { Object.values(window._trendCharts).forEach(ch => { try{ ch.resize(); }catch(e){} }); }, 50);
         } catch (err) { console.warn("renderTrendsCharts failed:", err); }
       };
@@ -5763,6 +6646,229 @@ Persistent background information about your condition. Written once, updated as
   };
 
 })();
+</script>
+
+<script>
+  // ── Protocol Signal Review System ────────────────────────────────
+  const SIGNAL_REVIEW_CHECKPOINTS = [
+    { id: 'sr_3m',  label: '3-Month Signal Check',      dayFrom: 75,  dayTo: 105, type: 'informal' },
+    { id: 'sr_6m',  label: '6-Month Signal Check',      dayFrom: 165, dayTo: 195, type: 'informal' },
+    { id: 'sr_9m',  label: '9-Month Signal Check',      dayFrom: 252, dayTo: 282, type: 'confounder' },
+    { id: 'sr_12m', label: '12-Month Escalation Review', dayFrom: 336, dayTo: 9999, type: 'formal' },
+  ];
+
+  function _srDaysSinceNA() {
+    const naStart = localStorage.getItem('amn_na_start_date') || '';
+    if (!naStart) return null;
+    const start = new Date(naStart + 'T00:00:00');
+    const today = new Date();
+    return Math.floor((today - start) / 86400000);
+  }
+
+  function _srActiveDateStr(cp) {
+    const naStart = localStorage.getItem('amn_na_start_date') || '';
+    if (!naStart) return null;
+    const d = new Date(naStart + 'T00:00:00');
+    d.setDate(d.getDate() + cp.dayFrom);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  window.initSignalReviewUI = function() {
+    const host = document.getElementById('signal-review-buttons');
+    if (!host) return;
+    const naStart = localStorage.getItem('amn_na_start_date') || '';
+    const daysNA = _srDaysSinceNA();
+
+    if (!naStart) {
+      host.innerHTML = '<div style="font-size:0.82rem; color:#666; font-style:italic;">Signal reviews become available once the NA start date is locked.</div>';
+      return;
+    }
+
+    host.innerHTML = '';
+    SIGNAL_REVIEW_CHECKPOINTS.forEach(cp => {
+      const active = daysNA !== null && daysNA >= cp.dayFrom && daysNA <= cp.dayTo;
+      const past   = daysNA !== null && daysNA > cp.dayTo;
+      const future = !active && !past;
+      const activeDate = _srActiveDateStr(cp);
+
+      const saved = _srGetSavedReview(cp.id);
+
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = 'border:1px solid ' + (active ? '#38bdf8' : '#2a2a2e') + '; border-radius:10px; padding:12px; background:' + (active ? '#0a1a2a' : '#111');
+
+      let btnHtml = '';
+      if (active) {
+        btnHtml = `<button class="ai-run-btn" onclick="window.runSignalReview('${cp.id}')" style="margin-top:8px;">Run ${cp.label}</button>`;
+      } else if (past) {
+        btnHtml = `<button class="ai-run-btn" onclick="window.runSignalReview('${cp.id}')" style="margin-top:8px; opacity:0.7; border-color:#38bdf844; color:#38bdf8;">Re-run ${cp.label}</button>`;
+      } else {
+        btnHtml = `<div style="font-size:0.78rem; color:#555; margin-top:6px; font-style:italic;">Available from ${activeDate} (day ${cp.dayFrom})</div>`;
+      }
+
+      const savedHtml = saved
+        ? `<div style="margin-top:10px; padding:8px; background:#0d0d10; border-radius:6px; border:1px solid #2a2a2e;">
+             <div style="font-size:0.72rem; color:#555; margin-bottom:4px;">Last review: ${saved.date}</div>
+             <div class="ai-analysis-output visible" style="font-size:0.8rem; max-height:180px; overflow-y:auto;">${saved.text}</div>
+           </div>`
+        : '';
+
+      wrapper.innerHTML = `
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <div>
+            <div style="font-size:0.9rem; font-weight:700; color:${active ? '#38bdf8' : (past ? '#ccc' : '#555')};">${cp.label}</div>
+            <div style="font-size:0.75rem; color:#666; margin-top:2px;">Day ${cp.dayFrom}${cp.dayTo < 9999 ? '–' + cp.dayTo : '+'}</div>
+          </div>
+          <div style="font-size:0.72rem; padding:3px 8px; border-radius:20px; background:${active ? '#0a3a5a' : '#1a1a1e'}; color:${active ? '#38bdf8' : '#555'}; white-space:nowrap;">${active ? 'Active' : (past ? 'Past window' : 'Not yet')}</div>
+        </div>
+        ${btnHtml}
+        <div id="sr-output-${cp.id}" style="margin-top:8px;"></div>
+        ${savedHtml}
+      `;
+      host.appendChild(wrapper);
+    });
+  };
+
+  function _srGetSavedReview(id) {
+    try {
+      const saved = JSON.parse(localStorage.getItem('amn_signal_reviews') || '{}');
+      return saved[id] || null;
+    } catch(e) { return null; }
+  }
+
+  function _srSaveReview(id, text) {
+    try {
+      const saved = JSON.parse(localStorage.getItem('amn_signal_reviews') || '{}');
+      saved[id] = { text, date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) };
+      localStorage.setItem('amn_signal_reviews', JSON.stringify(saved));
+      // Also persist to Firestore if authenticated
+      const uid = window.CURRENT_UID;
+      if (uid && window.db) {
+        window.db.collection(`users/${uid}/profiles/patrick/signal_reviews`).doc(id).set({ text, date: new Date().toISOString(), checkpoint: id }).catch(() => {});
+      }
+    } catch(e) { console.warn('Could not save signal review:', e); }
+  }
+
+  async function _srBuildLongitudinalContext() {
+    const lines = [];
+    const blStart = localStorage.getItem('amn_baseline_start_date') || '';
+    const naStart = localStorage.getItem('amn_na_start_date') || '';
+
+    lines.push('=== PROTOCOL CONTEXT ===');
+    lines.push('Subject: Patrick Fuellbeck — AMN (Adrenomyeloneuropathy), spastic paraparesis phenotype.');
+    lines.push('Protocol design: Structured n=1 self-experimentation. Two-phase design.');
+    lines.push('CRITICAL — Supplement framing: The antioxidant stack (NAC, R-Alpha Lipoic Acid, Vitamin E) has been taken on and off for approximately one year PRIOR to this protocol. It is a CONSTANT across both the baseline and NA periods — it is NOT a variable. Nervonic Acid (NA) is the SINGLE new variable introduced at the NA start date. Any apparent changes between the baseline and NA periods should be attributed to NA specifically, not to the overall supplement stack.');
+    lines.push('Goal: Detect whether NA supplementation produces a measurable signal — specifically, functional improvement that exceeds the within-subject baseline variability range and is cross-validated across multiple measures.');
+    if (blStart) lines.push(`Baseline observation start: ${blStart}`);
+    if (naStart) lines.push(`Nervonic Acid (NA) start: ${naStart}`);
+    else lines.push('NA has not yet been started.');
+
+    try {
+      const mc = JSON.parse(localStorage.getItem('medical_context_cache') || '{}');
+      if (mc.phenotype) lines.push(`Phenotype: ${mc.phenotype}`);
+      if (mc.medications) lines.push(`Background medications: ${mc.medications}`);
+      if (mc.unique_notes) lines.push(`Unique notes: ${mc.unique_notes}`);
+    } catch(e) {}
+
+    lines.push('\n=== FULL LONGITUDINAL LOG DATA ===');
+    const uid = window.CURRENT_UID;
+    if (uid && window.db) {
+      try {
+        const snap = await window.db.collection(`users/${uid}/profiles/patrick/logs`).orderBy('date', 'asc').get();
+        lines.push(`Total log entries: ${snap.size}`);
+        snap.forEach(doc => {
+          const l = doc.data();
+          const parts = [`[${l.date}]`];
+          if (l.baseline_rating) parts.push(`global:${l.baseline_rating}`);
+          if (l.energy_capacity !== undefined) parts.push(`energy:${l.energy_capacity}`);
+          const sd = l.symptom_drift || {};
+          if (sd.brain_fog !== undefined) parts.push(`fog:${sd.brain_fog}`);
+          if (sd.step_gait_effort !== undefined) parts.push(`gait:${sd.step_gait_effort}`);
+          if (sd.neurologic_fatigue !== undefined) parts.push(`neuro_fatigue:${sd.neurologic_fatigue}`);
+          if (sd.sleep_quality !== undefined) parts.push(`sleep:${sd.sleep_quality}`);
+          if (sd.leg_stiffness !== undefined) parts.push(`stiffness:${sd.leg_stiffness}`);
+          if (sd.sustained_walking_effort !== undefined) parts.push(`sustained_walk:${sd.sustained_walking_effort}`);
+          const ps = l.psychological_state || {};
+          if (ps.anxiety !== undefined) parts.push(`anxiety:${ps.anxiety}`);
+          if (ps.cognitive_load !== undefined) parts.push(`cog_load:${ps.cognitive_load}`);
+          const pi = l.pain_impact || {};
+          if (pi.severity !== undefined) parts.push(`pain:${pi.severity}`);
+          const cc = l.context_changes || {};
+          const negConf = [cc.poor_sleep_last_night, cc.unusual_physical_exertion, cc.infection_symptoms, cc.gi_upset_or_dehydration_risk, cc.travel_or_disrupted_schedule, (cc.high_stress > 0)].filter(Boolean).length;
+          const posConf = [cc.pos_conf_exercise, cc.pos_conf_lowstress, cc.pos_conf_seasonal].filter(Boolean).length;
+          if (negConf) parts.push(`neg_conf:${negConf}`);
+          if (posConf) parts.push(`pos_conf:${posConf}`);
+          lines.push('  ' + parts.join(' | '));
+        });
+      } catch(e) { lines.push('(Could not load log data: ' + e.message + ')'); }
+
+      // Functional tests
+      try {
+        const testsSnap = await window.db.collection(`users/${uid}/profiles/patrick/tests`).orderBy('test_date', 'asc').get();
+        if (!testsSnap.empty) {
+          lines.push('\n=== FUNCTIONAL TEST RESULTS ===');
+          testsSnap.forEach(doc => {
+            const t = doc.data();
+            const parts = [`[${t.test_date}]`];
+            if (t.six_minute_walk?.calculated_distance_m) parts.push(`6MW:${t.six_minute_walk.calculated_distance_m}m`);
+            if (t.timed_25fw?.average_seconds) parts.push(`T25FW:${t.timed_25fw.average_seconds}s`);
+            if (t.sit_to_stand_5x?.time_seconds) parts.push(`STS:${t.sit_to_stand_5x.time_seconds}s`);
+            lines.push('  ' + parts.join(' | '));
+          });
+        }
+      } catch(e) {}
+    }
+
+    return lines.join('\n');
+  }
+
+  function _srSystemPrompt(cp) {
+    const base = `You are a rigorous health data analyst supporting a structured n=1 self-experimentation protocol for AMN (Adrenomyeloneuropathy). Your role is analytical — you do not give medical advice, diagnoses, or treatment recommendations. You evaluate longitudinal data against pre-specified criteria with scientific precision. Use plain language and be specific about values and dates.
+
+CRITICAL FRAMING: The antioxidant stack (NAC, R-ALA, Vitamin E) is a constant across both periods. Nervonic Acid (NA) is the single new variable. Attribute any apparent changes to NA specifically, not to the overall supplement stack.`;
+
+    if (cp.type === 'formal') {
+      return base + `\n\nYou are conducting the 12-Month Formal Escalation Assessment. This is the definitive review against the Governance Protocol escalation criteria. Your output must be 600–900 words and include ALL of the following sections with these exact headers:\n\n**Trend Summary**\n**Functional Test Assessment**\n**Symptom Domain Assessment**\n**Confounder Review**\n**Cross-Validation**\n**Conclusion**\n\nThe Conclusion section must state one of exactly three things:\n1. "Signal present and escalation criteria appear met" — if sustained improvement exceeds baseline variability band, is cross-validated across more than one functional test AND corresponding symptom domains, and has survived two-sided confounder review.\n2. "Signal present but criteria not fully met" — followed by specific identification of which criteria are unmet.\n3. "No clear signal above baseline variability detected"\n\nEnd with this disclaimer: "This assessment is analytical only, does not constitute a medical recommendation, and does not replace the formal escalation gate review or clinical judgment."`;
+    }
+    if (cp.type === 'confounder') {
+      return base + `\n\nYou are conducting the 9-Month Signal Check. Output approximately 400–600 words with clear section headers. This review has two components:\n1. Pattern read: assess whether any metrics appear to be trending outside the baseline variability range, whether trends are cross-validated across multiple measures or isolated to one.\n2. Confounder stability assessment: evaluate whether the preceding 90-day window was clean enough to draw interpretable conclusions. Identify any periods of elevated positive or negative confounder load that may have distorted the picture.\n\nThis is an informal check — do not make an escalation recommendation.\n\nEnd with this disclaimer: "This assessment is analytical only, does not constitute a medical recommendation, and does not replace the formal escalation gate review or clinical judgment."`;
+    }
+    return base + `\n\nYou are conducting the ${cp.label}. Output approximately 400–600 words with clear section headers. Assess:\n- Whether any metrics appear to be trending outside the baseline variability range\n- Whether confounders are reasonably controlled during the measurement window\n- Whether any apparent trends are cross-validated across multiple measures or isolated to one\n\nThis is an informal pattern read — do not make an escalation recommendation.\n\nEnd with this disclaimer: "This assessment is analytical only, does not constitute a medical recommendation, and does not replace the formal escalation gate review or clinical judgment."`;
+  }
+
+  window.runSignalReview = async function(cpId) {
+    const cp = SIGNAL_REVIEW_CHECKPOINTS.find(c => c.id === cpId);
+    if (!cp) return;
+    if (typeof getAIKey === 'function' && !getAIKey()) { if (typeof window.openAIKeyModal === 'function') window.openAIKeyModal(); return; }
+
+    const outEl = document.getElementById(`sr-output-${cpId}`);
+    if (outEl) { outEl.innerHTML = '<div class="ai-analysis-output visible" style="font-size:0.82rem;">Building longitudinal context…</div>'; }
+
+    try {
+      const ctx = await _srBuildLongitudinalContext();
+      const sysPrompt = _srSystemPrompt(cp);
+      const userMsg = `Please conduct the ${cp.label} for this protocol.\n\n${ctx}`;
+
+      let fullText = '';
+      if (typeof callClaude === 'function') {
+        await callClaude(sysPrompt, userMsg, (_chunk, full) => {
+          fullText = full;
+          if (outEl) {
+            const el = outEl.querySelector('.ai-analysis-output');
+            if (el) el.textContent = full;
+          }
+        });
+      }
+
+      // Save the completed review
+      _srSaveReview(cpId, fullText);
+
+      // Re-render the UI so saved result appears
+      window.initSignalReviewUI();
+
+    } catch(e) {
+      if (outEl) outEl.innerHTML = `<div style="color:#FF453A; font-size:0.82rem;">Error: ${e.message}</div>`;
+    }
+  };
 </script>
 
 </body>
