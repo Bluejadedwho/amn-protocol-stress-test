@@ -153,10 +153,10 @@
     <span style="color:#7AB8F5;">120-Day Loader</span>
   </div>
 
-  <h1>120-Day Data Loader</h1>
-  <p class="subtitle">
-    One-click: populates your app with 120 days of realistic synthetic protocol data.
-    Charts, trends, summaries, and PDF export will all work as if you'd been tracking for 4 months.
+  <h1 id="page-title">Protocol Data Loader</h1>
+  <p class="subtitle" id="page-subtitle">
+    One-click: populates your app with realistic synthetic protocol data for any duration up to 365 days.
+    Charts, trends, signal reviews, and PDF export will all work as if you'd been tracking for the full period.
   </p>
 
   <div class="safety-note">
@@ -177,7 +177,7 @@
     <div class="row">
       <div>
         <label>Days to generate</label>
-        <input id="cfg-days" type="number" value="120" min="7" max="365"/>
+        <input id="cfg-days" type="number" value="120" min="7" max="365" oninput="updateDynamicUI()"/>
       </div>
       <div>
         <label>Start date</label>
@@ -200,12 +200,19 @@
         </select>
       </div>
     </div>
+    <div style="margin-top:4px;">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#8E8E93; font-size:0.8rem; font-weight:400;">
+        <input id="cfg-set-dates" type="checkbox" checked style="width:auto; margin:0;"/>
+        Auto-set baseline &amp; NA start dates in localStorage (enables signal review checkpoints)
+      </label>
+      <div id="dates-preview" style="margin-top:8px; font-size:0.75rem; color:#555; line-height:1.6;"></div>
+    </div>
   </div>
 
   <!-- Actions -->
   <div class="card">
     <h2>Actions</h2>
-    <button class="btn btn-go" id="btn-go" onclick="runLoader()" disabled>Load 120 Days of Data</button>
+    <button class="btn btn-go" id="btn-go" onclick="runLoader()" disabled>Load Data</button>
     <button class="btn btn-clear" id="btn-clear" onclick="clearSynthetic()" disabled>Clear Synthetic Data</button>
     <button class="btn btn-back" onclick="window.location.href='stress-test.html'">Back to App</button>
 
@@ -247,7 +254,9 @@ auth.onAuthStateChanged(function(user) {
     currentUid = user.uid;
     statusEl.textContent = 'Signed in as ' + (user.email || user.uid);
     statusEl.className = 'status ok';
+    const days = parseInt(document.getElementById('cfg-days').value) || 120;
     document.getElementById('btn-go').disabled = false;
+    document.getElementById('btn-go').textContent = 'Load ' + days + ' Days of Data';
     document.getElementById('btn-clear').disabled = false;
   } else {
     currentUid = null;
@@ -280,12 +289,70 @@ function showResult(ok, msg) {
 }
 
 // ============================================================
-// Set default start date to 120 days ago
+// Dynamic UI — update button text, start date, and date preview
 // ============================================================
-(function setDefaults() {
+function updateDynamicUI() {
+  const days = parseInt(document.getElementById('cfg-days').value) || 120;
+  const clampedDays = Math.max(7, Math.min(365, days));
+
+  // Update button text
+  const btn = document.getElementById('btn-go');
+  if (btn && !btn.disabled) btn.textContent = 'Load ' + clampedDays + ' Days of Data';
+  else if (btn) btn.textContent = 'Load ' + clampedDays + ' Days of Data';
+
+  // Update default start date to match days (start = days ago)
   const d = new Date();
-  d.setDate(d.getDate() - 119);
+  d.setDate(d.getDate() - (clampedDays - 1));
   document.getElementById('cfg-start').value = d.toISOString().split('T')[0];
+
+  // Update dates preview
+  updateDatesPreview();
+}
+
+function dateStrDaysAgo(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().split('T')[0];
+}
+
+function updateDatesPreview() {
+  const days = parseInt(document.getElementById('cfg-days').value) || 120;
+  const clampedDays = Math.max(7, Math.min(365, days));
+  const preview = document.getElementById('dates-preview');
+  const enabled = document.getElementById('cfg-set-dates')?.checked;
+  if (!preview) return;
+
+  // Baseline = start date, NA start = 14 days in (or half of total if < 28)
+  const baselineOffset = clampedDays - 1; // days ago
+  const naOffset = Math.max(clampedDays - 15, 1); // 14 days after baseline start
+  const blDate = dateStrDaysAgo(baselineOffset);
+  const naDate = dateStrDaysAgo(naOffset);
+  const naDays = naOffset; // days since NA start
+
+  // Determine which signal review checkpoints would be reachable
+  const checkpoints = [];
+  if (naDays >= 75)  checkpoints.push(naDays <= 105 ? '3-month ✅ ACTIVE' : '3-month ✓ past');
+  if (naDays >= 165) checkpoints.push(naDays <= 195 ? '6-month ✅ ACTIVE' : '6-month ✓ past');
+  if (naDays >= 252) checkpoints.push(naDays <= 282 ? '9-month ✅ ACTIVE' : '9-month ✓ past');
+  if (naDays >= 336) checkpoints.push('12-month ✅ ACTIVE');
+
+  if (!enabled) {
+    preview.textContent = 'Dates auto-set disabled — set baseline and NA start dates manually in the app.';
+    return;
+  }
+
+  preview.innerHTML =
+    'Baseline start: <strong style="color:#fff">' + blDate + '</strong> &nbsp;|&nbsp; ' +
+    'NA start: <strong style="color:#fff">' + naDate + '</strong> &nbsp;|&nbsp; ' +
+    'NA day ' + naDays + '<br>' +
+    (checkpoints.length
+      ? 'Signal review gates: ' + checkpoints.join(', ')
+      : '<span style="color:#ff9f0a">NA day ' + naDays + ' — increase days to reach a 3-month gate (need ≥89 days)</span>');
+}
+
+(function setDefaults() {
+  updateDynamicUI();
+  document.getElementById('cfg-set-dates')?.addEventListener('change', updateDatesPreview);
 })();
 
 // ============================================================
@@ -534,42 +601,52 @@ function generateFunctionalTest(dayIndex, totalDays, pattern) {
 }
 
 // ============================================================
-// Blood / lab test generator — full panel, baseline & 3-month
+// Blood / lab test generator — baseline, 3m, 6m, 9m, 12m
 // ============================================================
 function generateLabPanel(phase) {
-  const isBaseline = phase === "baseline";
+  // t = 0 at baseline, 1 at 12-month — drives gradual VLCFA trend
+  const tMap = { baseline: 0, '3month': 0.25, '6month': 0.5, '9month': 0.75, '12month': 1.0 };
+  const t = tMap[phase] ?? 0;
+  const isBaseline = phase === 'baseline';
+
+  // VLCFA improves gradually over the year
+  const vlcfaScale = 1 - t * 0.25; // 100% → 75% of baseline range by year end
   return {
     lab: {
       test_date: null, // set by caller
-      // VLCFA panel — baseline higher, 3-month trending down
-      vlcfa_c24: randFloat(isBaseline ? 18.0 : 16.0, isBaseline ? 28.0 : 24.0).toFixed(1),
-      vlcfa_c25: randFloat(isBaseline ? 0.8 : 0.6, isBaseline ? 1.6 : 1.3).toFixed(2),
-      vlcfa_c26: randFloat(isBaseline ? 1.0 : 0.7, isBaseline ? 2.8 : 2.2).toFixed(2),
-      vlcfa_ratio: randFloat(isBaseline ? 0.018 : 0.014, isBaseline ? 0.035 : 0.028).toFixed(3),
-      // CBC
+      vlcfa_c24:  randFloat(18.0 * vlcfaScale, 28.0 * vlcfaScale).toFixed(1),
+      vlcfa_c25:  randFloat(0.8  * vlcfaScale, 1.6  * vlcfaScale).toFixed(2),
+      vlcfa_c26:  randFloat(1.0  * vlcfaScale, 2.8  * vlcfaScale).toFixed(2),
+      vlcfa_ratio:randFloat(0.018* vlcfaScale, 0.035* vlcfaScale).toFixed(3),
+      // CBC — stable throughout
       cbc: `WBC ${randFloat(4.0, 10.0).toFixed(1)}, Hgb ${randFloat(12.5, 16.5).toFixed(1)}, Plt ${rand(150, 350)}`,
-      // Liver enzymes
-      ast: String(rand(15, 40)),
-      alt: String(rand(12, 45)),
+      // Liver — slightly improving (no toxicity signal)
+      ast: String(rand(15, isBaseline ? 40 : 35)),
+      alt: String(rand(12, isBaseline ? 45 : 38)),
       alp: String(rand(40, 120)),
       bilirubin: randFloat(0.3, 1.2).toFixed(1),
-      // Kidney
+      // Kidney — stable
       creatinine: randFloat(0.7, 1.3).toFixed(1),
       egfr: String(rand(75, 120)),
-      // Electrolytes
+      // Electrolytes — stable
       sodium: String(rand(136, 145)),
       potassium: randFloat(3.5, 5.0).toFixed(1),
       chloride: String(rand(98, 106)),
       bicarbonate: String(rand(22, 28)),
-      // Lipid panel
+      // Lipid panel — stable
       cholesterol: String(rand(150, 240)),
       ldl: String(rand(70, 160)),
       hdl: String(rand(40, 80)),
       triglycerides: String(rand(60, 200)),
-      // Optional advanced — null for synthetic data
       plasma_fatty_acid: null,
       rbc_membrane_fa: null,
-      notes: isBaseline ? 'Baseline labs — pre-protocol' : '3-month follow-up labs'
+      notes: {
+        baseline: 'Baseline labs — pre-protocol',
+        '3month':  '3-month follow-up labs',
+        '6month':  '6-month follow-up labs',
+        '9month':  '9-month follow-up labs',
+        '12month': '12-month / year-one evaluation labs'
+      }[phase] || phase + ' labs'
     }
   };
 }
@@ -598,10 +675,39 @@ async function runLoader() {
 
   const startDate = new Date(startStr + 'T00:00:00');
 
+  // Auto-set protocol dates in localStorage if requested
+  const setDates = document.getElementById('cfg-set-dates')?.checked;
+  const baselineDate = startStr;
+  const naStartDate = (function() {
+    const d = new Date(startStr + 'T00:00:00');
+    d.setDate(d.getDate() + 14);
+    return d.toISOString().split('T')[0];
+  })();
+
+  if (setDates) {
+    try {
+      localStorage.setItem('amn_baseline_start_date', baselineDate);
+      localStorage.setItem('amn_na_start_date', naStartDate);
+      log('Set amn_baseline_start_date = ' + baselineDate, 'ok');
+      log('Set amn_na_start_date = ' + naStartDate, 'ok');
+    } catch(e) {
+      log('Could not set localStorage dates: ' + e.message, 'warn');
+    }
+  }
+
   log(`Generating ${days} days of "${pattern}" data starting ${startStr}`, 'info');
   log(`Profile: ${profile} | Writing to Firestore (tagged _synthetic: true)`, 'info');
   log('Your real data will NOT be affected.', 'info');
   log('─'.repeat(50), 'info');
+
+  // Lab milestone days
+  const labDays = {
+    0:   'baseline',
+    90:  '3month',
+    180: '6month',
+    270: '9month',
+    364: '12month'  // day index 364 = day 365
+  };
 
   let written = 0, errors = 0;
 
@@ -620,19 +726,20 @@ async function runLoader() {
     payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
     payload.clientUpdatedAt = new Date().toISOString();
 
-    // Embed baseline lab panel on day 0
-    if (i === 0) {
-      const labs = generateLabPanel("baseline");
+    // Embed lab panel at each milestone day (if within range)
+    const labPhase = labDays[i] || (i === days - 1 && days < 365 ? labDays[Object.keys(labDays).filter(k => parseInt(k) <= i).pop()] : null);
+    if (labDays[i]) {
+      const labs = generateLabPanel(labDays[i]);
       labs.lab.test_date = dateStr;
       Object.assign(payload, labs);
-      log('Embedded baseline lab panel on ' + dateStr, 'info');
-    }
-    // Embed 3-month follow-up lab panel on day 90 (or last day if < 90)
-    if (i === Math.min(90, days - 1) && i > 0) {
-      const labs = generateLabPanel("3month");
+      log('Embedded ' + labDays[i] + ' lab panel on ' + dateStr, 'info');
+    } else if (i === days - 1 && !Object.keys(labDays).map(Number).includes(i)) {
+      // Final day — embed whichever milestone panel is closest
+      const phase = i >= 270 ? '9month' : i >= 180 ? '6month' : i >= 90 ? '3month' : 'baseline';
+      const labs = generateLabPanel(phase);
       labs.lab.test_date = dateStr;
       Object.assign(payload, labs);
-      log('Embedded 3-month lab panel on ' + dateStr, 'info');
+      log('Embedded ' + phase + ' lab panel on final day ' + dateStr, 'info');
     }
 
     try {
@@ -691,7 +798,8 @@ async function runLoader() {
   }
 
   log(`${testsWritten} weekly functional tests written`, 'ok');
-  log('1 initial blood test embedded in day 1 log', 'ok');
+  const labCount = Object.keys(labDays).filter(k => parseInt(k) < days).length + (Object.keys(labDays).map(Number).includes(days - 1) ? 0 : 1);
+  log(`Lab panels embedded at protocol milestones (baseline${days > 90 ? ', 3-month' : ''}${days > 180 ? ', 6-month' : ''}${days > 270 ? ', 9-month' : ''}${days >= 365 ? ', 12-month' : ''})`, 'ok');
 
   log('─'.repeat(50), 'info');
   log(`Done! ${written} days + ${testsWritten} functional tests written, ${errors} errors`, errors ? 'warn' : 'ok');
@@ -705,7 +813,9 @@ async function runLoader() {
     showResult(false, `${written} days + ${testsWritten} tests loaded, ${errors} errors — check log above`);
   }
 
+  const finalDays = parseInt(document.getElementById('cfg-days').value) || 120;
   document.getElementById('btn-go').disabled = false;
+  document.getElementById('btn-go').textContent = 'Load ' + finalDays + ' Days of Data';
   document.getElementById('btn-clear').disabled = false;
   running = false;
 }
