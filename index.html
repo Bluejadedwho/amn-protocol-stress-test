@@ -255,8 +255,79 @@
       list-style: none;
       font-size: 0.9rem;
     }
-    details.lab-folder summary { color: var(--lab-purple); }
+    details.lab-folder summary { color: var(--lab-purple); position: relative; justify-content: center; }
+    details.lab-folder summary::before { position: absolute; left: 15px; margin-right: 0; }
+    summary.adv-monitoring-summary { position: relative; justify-content: center; }
+    summary.adv-monitoring-summary::before { position: absolute; left: 14px; margin-right: 0; }
     summary::-webkit-details-marker { display: none; }
+
+    /* --- DOSE ESCALATION RULES ACCORDION --- */
+    #escalation-rules-accordion {
+      margin-bottom: 20px;
+      border-left: 3px solid var(--accent-color);
+      border-radius: 12px;
+      background: var(--card-bg);
+      overflow: hidden;
+    }
+    #escalation-rules-accordion summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      user-select: none;
+    }
+    #escalation-rules-accordion summary::-webkit-details-marker { display: none; }
+    .esc-summary-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .esc-summary-hint {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      font-weight: 400;
+    }
+    #escalation-rules-accordion[open] summary {
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .esc-accordion-body {
+      padding: 16px 18px 18px;
+    }
+    .esc-open-btn {
+      width: 100%;
+      padding: 16px 20px;
+      background: transparent;
+      border: 1.5px solid var(--accent-color);
+      border-radius: 10px;
+      color: var(--accent-color);
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      text-align: center;
+      box-shadow: 0 0 12px rgba(48,209,88,0.15);
+      transition: box-shadow 0.2s, background 0.2s;
+    }
+    .esc-open-btn:active {
+      background: rgba(48,209,88,0.08);
+      box-shadow: 0 0 20px rgba(48,209,88,0.3);
+    }
+
+    /* --- SELECTION VIEW --- */
+    #selection-view {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding-top: 20px;
+      padding-bottom: 20px;
+      box-sizing: border-box;
+    }
 
     summary::before {
       content: "📁";
@@ -388,7 +459,7 @@
     .history-details { padding: 10px 12px; background: #1c1c1e; font-size: 0.85rem; color: #AAA; border-top: 1px solid #444; line-height: 1.6; display: none; }
     .history-item.open .history-details { display: block; }
 
-    .pill-row { display:flex; gap:10px; margin-top:10px; }
+    .pill-row { display:flex; gap:8px; margin-top:10px; width:100%; }
     .pill-btn {
       background:#2C2C2E;
       border:1px solid #333;
@@ -1143,6 +1214,25 @@ body.modal-open {
       }, { passive: false });
     });
 
+    // iOS Safari scroll lock — must use position:fixed to fully prevent rubber-band
+    window._lockScroll = function() {
+      const scrollY = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
+      document.body.dataset.scrollY = scrollY;
+    };
+    window._unlockScroll = function() {
+      const scrollY = parseInt(document.body.dataset.scrollY || '0', 10);
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.overflow = '';
+      window.scrollTo(0, scrollY);
+    };
+
     window.closeAllModals = function() {
         ['overview-modal', 'export-modal', 'dev-modal', 'medical-context-modal', 'baseline-modal'].forEach(id => {
             const m = byId(id);
@@ -1503,6 +1593,7 @@ body.modal-open {
       const m = byId('escalation-modal');
       if (!m) return;
       m.style.display = 'block';
+      window._lockScroll && window._lockScroll();
       // Restore most recent saved review into form fields
       try {
         const log = JSON.parse(localStorage.getItem('escalation_review_log') || '[]');
@@ -1542,6 +1633,7 @@ body.modal-open {
     window.closeEscalationModal = function() {
       const m = byId('escalation-modal');
       if (m) m.style.display = 'none';
+      window._unlockScroll && window._unlockScroll();
     };
 
     window.computeEscalationStatus = function() {
@@ -1836,6 +1928,77 @@ body.modal-open {
       }
     };
 
+    // Pre-fill symptom shift sliders with the user's sealed baseline values.
+    // Tries localStorage first; falls back to Firebase so cross-device sync works.
+    // Uses the most recent locked snapshot so a future reassessment auto-updates defaults.
+    const _baselineSliderMap = {
+      "p-fog":          "brain_fog_num",
+      "p-gait":         "gait_step_num",
+      "p-gait-init":    "gait_init_num",
+      "p-gait-sustain": "gait_sustain_num",
+      "p-fatigue":      "neuro_fatigue_num",
+      "p-sleep":        "sleep_num",
+      "p-stiff":            "leg_stiff_num",
+      "p-postrest":         "post_rest_num",
+      "p-volatility":       "volatility_num",
+      "p-ps-mood":          "mood_num",
+      "p-ps-anxiety":       "anxiety_num",
+      "p-ps-cognitive-load":"cognitive_load_num"
+    };
+    function _applyBaselineData(data) {
+      Object.entries(_baselineSliderMap).forEach(([sliderId, dataKey]) => {
+        const el = document.getElementById(sliderId);
+        if (!el) return;
+        const v = Number(data[dataKey]);
+        if (Number.isFinite(v) && v >= 0 && v <= 10) {
+          el.value = v;
+          window.updateSlider(el);
+        }
+      });
+    }
+    // Returns the best available snapshot from an array: prefers the latest sealed one,
+    // falls back to the latest unsealed one so edits-in-progress still pre-fill sliders.
+    function _bestSnapshot(snaps) {
+      if (!snaps || !snaps.length) return null;
+      const sealed = snaps.filter(s => s.locked);
+      if (sealed.length) return sealed[sealed.length - 1];
+      return snaps[snaps.length - 1]; // fallback: latest unsealed
+    }
+    window.applyBaselineDefaults = async function() {
+      try {
+        // Try localStorage first (fast path — already synced on this device)
+        const stored = JSON.parse(localStorage.getItem("amn_baseline_snapshots_v1") || "null");
+        const localSnaps = stored && stored.snapshots ? stored.snapshots : (Array.isArray(stored) ? stored : []);
+        const best = _bestSnapshot(localSnaps);
+        if (best) {
+          _applyBaselineData(best.data || {});
+          return;
+        }
+        // Fall back to Firebase (covers cross-device use, e.g. baseline done on desktop)
+        const uid = window.CURRENT_UID;
+        if (typeof firebase === 'undefined') return;
+        if (!uid) {
+          // Guest/demo mode: try shared demo baseline path
+          try {
+            const demoDoc = await firebase.firestore().doc('demo/baseline_snapshots').get();
+            if (demoDoc.exists) {
+              const demoSnaps = demoDoc.data().snapshots || [];
+              const demoBest = _bestSnapshot(demoSnaps);
+              if (demoBest) { _applyBaselineData(demoBest.data || {}); }
+            }
+          } catch(e) { console.warn("Demo baseline load failed:", e); }
+          return;
+        }
+        const doc = await firebase.firestore()
+          .collection('users').doc(uid)
+          .collection('baseline').doc('snapshots').get();
+        if (!doc.exists) return;
+        const fsBest = _bestSnapshot(doc.data().snapshots || []);
+        if (!fsBest) return;
+        _applyBaselineData(fsBest.data || {});
+      } catch(e) { console.warn("applyBaselineDefaults failed:", e); }
+    };
+
     window.resetPilotForm = function() {
       const form = byId("patrick-form");
       if (!form) return;
@@ -1844,6 +2007,7 @@ body.modal-open {
       const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML = '';
       const pos = document.getElementById('p-positive-events'); if (pos) pos.innerHTML = '';
       Array.from(form.querySelectorAll('input[type="range"]')).forEach(r => window.updateSlider(r));
+      window.applyBaselineDefaults();
       try { window.clearDraft(); } catch(e){}
       window.scrollTo(0,0);
     };
@@ -2847,6 +3011,25 @@ Persistent background information about your condition. Written once, updated as
 </div>
 </div>
 
+<!-- Dose Escalation Rules Accordion -->
+<details id="escalation-rules-accordion">
+  <summary>
+    <span class="esc-summary-title">🛡️ Dose Escalation Rules</span>
+    <span class="esc-summary-hint">Tap to review before any escalation decision</span>
+  </summary>
+  <div class="esc-accordion-body">
+    <ul style="font-size:0.85rem; color:var(--text-secondary); line-height:1.7; margin:0 0 12px 0; padding-left:18px;">
+      <li><strong>Fixed starting dose:</strong> 1 g/day NA for the full year-one protocol. No mid-trial adjustments.</li>
+      <li><strong>12-month minimum:</strong> Escalation review cannot open before Day 365. Year one is the 1 g experiment.</li>
+      <li><strong>30-day contamination window:</strong> Any dose change restarts the interpretability clock. Signals during transition periods are uninterpretable.</li>
+      <li><strong>Biomarkers alone are not enough:</strong> VLCFA improvement without durable functional improvement does not justify escalation.</li>
+      <li><strong>No obligation to escalate:</strong> There is no protocol requirement to increase dose. The default outcome of year-one review is maintain current dose.</li>
+    </ul>
+    <p style="font-size:0.82rem; color:#888; margin:0 0 18px 0; font-style:italic;">Unknown optimal dosing does not justify premature escalation. If year one is broken early, the clean answer is lost.</p>
+    <button class="esc-open-btn" onclick="window.openEscalationModal()" type="button">Open Escalation Review</button>
+  </div>
+</details>
+
 <!-- Year-One Roadmap Modal -->
 <div id="roadmap-modal" onclick="if(event.target===this)window.hideRoadmapModal()">
 <div class="roadmap-card">
@@ -3153,6 +3336,11 @@ Persistent background information about your condition. Written once, updated as
 <span class="nav-dot">&middot;</span>
 <button type="button" onclick="window.showRoadmapModal()">Year-One Roadmap</button>
 </div>
+<div class="nav-links-inner">
+<button type="button" id="nav-medical-context-btn" onclick="window.openMedicalContext()">Medical Context</button>
+<span class="nav-dot">&middot;</span>
+<button type="button" onclick="window.openAIQAModal()" style="color:#38bdf8;">Ask AI</button>
+</div>
 
 <div id="log-date-nav" style="display:flex; align-items:center; gap:8px; margin-bottom:14px; padding:10px 14px; background:var(--card-bg); border:1px solid #333; border-radius:12px;">
   <label for="log-nav-date" style="font-size:0.78rem; color:#aaa; white-space:nowrap; font-weight:600; letter-spacing:0.04em;">LOG DATE</label>
@@ -3288,6 +3476,7 @@ Persistent background information about your condition. Written once, updated as
 <label class="checkbox-row"><span>Missed dose</span><input id="p-conf-misseddose" type="checkbox"/></label>
 <label class="checkbox-row"><span>New supplement added</span><input id="p-conf-newsupp" type="checkbox"/></label>
 <label class="checkbox-row"><span>New medication added</span><input id="p-conf-newmed" type="checkbox"/></label>
+<label class="checkbox-row"><span>HC stress dose taken</span><input id="p-conf-stressdose" type="checkbox"/></label>
 <div class="input-group" style="margin-top:10px;">
 <label>Notes (optional)</label>
 <input id="p-conf-pharm-notes" placeholder="e.g., shifted hydrocortisone timing, added magnesium, missed NAC..." type="text"/>
@@ -3324,34 +3513,42 @@ Persistent background information about your condition. Written once, updated as
 </div>
 </div>
 <label class="checkbox-row"><span>Nothing unusual</span><input id="p-conf-none" type="checkbox"/></label>
+<div style="margin-top:12px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.07);">
+<div style="font-size:12px; color:rgba(255,255,255,0.4); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.04em;">Positive changes (may inflate apparent improvement)</div>
+<label class="checkbox-row"><span>Significantly increased physical activity or started new exercise routine</span><input id="p-conf-pos-exercise" type="checkbox"/></label>
+<label class="checkbox-row"><span>Unusually low stress / life circumstances notably improved</span><input id="p-conf-pos-lowstress" type="checkbox"/></label>
+<label class="checkbox-row"><span>Seasonal increase in activity (spring/summer)</span><input id="p-conf-pos-seasonal" type="checkbox"/></label>
+</div>
 </div>
 
 <div class="card">
 <h3>Symptom Shift (0-10)</h3>
-<div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Rate relative to your usual baseline. 0 = much worse, 5 = baseline, 10 = much better.</div>
-<div class="slider-header"><label>Brain Fog (10 = Worst)</label><span class="slider-val">5</span></div>
-<input id="p-fog" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
-<div class="slider-header"><label>Step-by-step gait effort (10 = Hardest)</label><span class="slider-val">5</span></div>
+<div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Rate your current level. 0 = worst / most symptomatic, 10 = best / least symptomatic. Your baseline value is pre-filled — adjust up or down from there.</div>
+<div class="slider-header"><label>Step-by-step gait effort (10 = Effortless)</label><span class="slider-val">5</span></div>
 <input id="p-gait" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
-<div class="slider-header"><label>Gait initiation effort (10 = Hardest)</label><span class="slider-val">5</span></div>
+<div class="slider-header"><label>Gait initiation effort (10 = Immediate)</label><span class="slider-val">5</span></div>
 <input id="p-gait-init" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
-<div class="slider-header"><label>Sustained walking effort (10 = Hardest)</label><span class="slider-val">5</span></div>
+<div class="slider-header"><label>Sustained walking effort (10 = Effortless)</label><span class="slider-val">5</span></div>
 <input id="p-gait-sustain" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
-<div class="slider-header"><label>Neurologic fatigue (10 = Wiped out)</label><span class="slider-val">5</span></div>
+<div class="slider-header"><label>Neurologic fatigue (10 = None)</label><span class="slider-val">5</span></div>
 <input id="p-fatigue" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
 <div class="slider-header"><label>Sleep Quality (10 = Best)</label><span class="slider-val">5</span></div>
 <input id="p-sleep" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
-<div class="slider-header"><label>Leg Stiffness (10 = Rigid)</label><span class="slider-val">5</span></div>
+<div class="slider-header" style="margin-top:10px;"><label>Hours slept</label></div>
+<input id="p-sleep-hours" type="number" min="0" max="24" step="0.5" placeholder="e.g. 7.5" style="width:100px; padding:6px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.06); color:#fff; font-size:1rem;"/>
+<div class="slider-header"><label>Leg Stiffness (10 = None)</label><span class="slider-val">5</span></div>
 <input id="p-stiff" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
-<div class="slider-header"><label>Post-rest stiffness (10 = Severe)</label><span class="slider-val">5</span></div>
+<div class="slider-header"><label>Post-rest stiffness (10 = None)</label><span class="slider-val">5</span></div>
 <input id="p-postrest" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
-<div class="slider-header"><label>Symptom volatility (10 = Very up and down)</label><span class="slider-val">5</span></div>
+<div class="slider-header"><label>Symptom volatility (10 = Stable)</label><span class="slider-val">5</span></div>
 <input id="p-volatility" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
 </div>
 
 <div class="card">
 <h3>Psychological State</h3>
 <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Rate your emotional and cognitive state today. Tracked separately to cross-validate physical symptom trends.</div>
+<div class="slider-header"><label>Brain Fog (10 = Clear)</label><span class="slider-val">5</span></div>
+<input id="p-fog" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
 <div class="slider-header"><label>Mood (10 = Best)</label><span class="slider-val">5</span></div>
 <input id="p-ps-mood" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
 <div class="slider-header"><label>Anxiety (10 = None / Calm)</label><span class="slider-val">5</span></div>
@@ -3567,6 +3764,58 @@ Persistent background information about your condition. Written once, updated as
 <label>Post-test fatigue (0–10)</label>
 <input id="ft-6m-fatigue" max="10" min="0" placeholder="0 to 10" type="number"/>
 <div style="color:#666; font-size:0.7rem; margin-top:3px;">Rate 5 min after</div>
+</div>
+</div>
+</div>
+
+<!-- Timed 25-Foot Walk -->
+<div class="card">
+<h3>Timed 25-Foot Walk</h3>
+
+<div style="display:flex; align-items:center; gap:10px; margin:8px 0 14px;">
+<div style="flex:1; height:1px; background:#333;"></div>
+<span style="color:#555; font-size:0.7rem; white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px;">Setup — measure once, reuse</span>
+<div style="flex:1; height:1px; background:#333;"></div>
+</div>
+
+<div class="input-group">
+<label>Assistive device</label>
+<select id="ft-t25-device">
+  <option value="">Select</option>
+  <option value="none">None</option>
+  <option value="cane">Cane</option>
+  <option value="walker">Walker</option>
+  <option value="rollator">Rollator</option>
+  <option value="crutches">Crutches</option>
+  <option value="other">Other</option>
+</select>
+</div>
+
+<div style="display:flex; align-items:center; gap:10px; margin:14px 0;">
+<div style="flex:1; height:1px; background:#333;"></div>
+<span style="color:#555; font-size:0.7rem; white-space:nowrap; text-transform:uppercase; letter-spacing:0.5px;">Trials — walk 25 ft, rest 30–60s, repeat</span>
+<div style="flex:1; height:1px; background:#333;"></div>
+</div>
+
+<div class="input-row">
+<div class="input-group">
+  <label>Trial 1 (seconds)</label>
+  <input id="ft-t25-trial1" placeholder="e.g. 5.2" step="0.1" type="number" oninput="window._ftRecalcT25Avg()"/>
+</div>
+<div class="input-group">
+  <label>Trial 2 (seconds)</label>
+  <input id="ft-t25-trial2" placeholder="e.g. 5.1" step="0.1" type="number" oninput="window._ftRecalcT25Avg()"/>
+</div>
+</div>
+<div class="input-row" style="margin-top:12px;">
+<div class="input-group">
+  <label>Average</label>
+  <div id="ft-t25-avg" style="background:var(--surface); border-radius:10px; padding:12px 14px; font-size:1rem; color:#444; font-weight:400; min-height:20px; user-select:none;">— s</div>
+  <div style="color:#666; font-size:0.7rem; margin-top:3px;">Auto-calculated (Trial 1 + Trial 2) ÷ 2</div>
+</div>
+<div class="input-group">
+  <label>Perceived exertion (0–10)</label>
+  <input id="ft-t25-rpe" max="10" min="0" placeholder="0 to 10" type="number"/>
 </div>
 </div>
 </div>
@@ -5296,7 +5545,7 @@ Persistent background information about your condition. Written once, updated as
       }
 
       function hasFunctionalTestData() {
-        return !!(val("ft-6m-laps") || val("ft-5x-time") || val("ft-notes"));
+        return !!(val("ft-6m-laps") || val("ft-5x-time") || val("ft-t25-trial1") || val("ft-t25-trial2") || val("ft-notes"));
       }
 
       // ── Functional test badge / tap-to-select system ──
@@ -5396,6 +5645,25 @@ Persistent background information about your condition. Written once, updated as
           }, { merge: true }).catch(function(e) { console.warn("Course length save failed:", e); });
       }
 
+      // Auto-calculate T25FW average from trial 1 + trial 2
+      window._ftRecalcT25Avg = function() {
+        const t1 = parseFloat(document.getElementById('ft-t25-trial1')?.value);
+        const t2 = parseFloat(document.getElementById('ft-t25-trial2')?.value);
+        const avgEl = document.getElementById('ft-t25-avg');
+        if (!avgEl) return;
+        if (isFinite(t1) && isFinite(t2)) {
+          const avg = ((t1 + t2) / 2).toFixed(2);
+          avgEl.textContent = avg + ' s';
+          avgEl.style.color = '#fff';
+        } else if (isFinite(t1)) {
+          avgEl.textContent = t1.toFixed(2) + ' s (1 trial)';
+          avgEl.style.color = '#888';
+        } else {
+          avgEl.textContent = '— s';
+          avgEl.style.color = '#444';
+        }
+      };
+
       // Save course length on blur
       (function() {
         const _initCourseBlur = function() {
@@ -5459,6 +5727,18 @@ Persistent background information about your condition. Written once, updated as
             course_length_m: courseLen,
             perceived_exertion: asNumber(val("ft-6m-rpe")),
             post_test_fatigue: asNumber(val("ft-6m-fatigue"))
+          },
+          timed_25fw: {
+            trial1_seconds: asNumber(val("ft-t25-trial1")),
+            trial2_seconds: asNumber(val("ft-t25-trial2")),
+            average_seconds: (() => {
+              const t1 = asNumber(val("ft-t25-trial1"));
+              const t2 = asNumber(val("ft-t25-trial2"));
+              if (t1 != null && t2 != null) return Math.round(((t1 + t2) / 2) * 100) / 100;
+              return t1 ?? t2 ?? null;
+            })(),
+            assistive_device: trimText(val("ft-t25-device")) || null,
+            perceived_exertion: asNumber(val("ft-t25-rpe"))
           },
           sit_to_stand_5x: {
             time_seconds: asNumber(val("ft-5x-time")),
