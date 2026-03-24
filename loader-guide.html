@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Loader Guide"/>
+<title>AMN Protocol — Data Loader Guide</title>
+<link rel="apple-touch-icon" href="icon2.png"/>
+<link rel="icon" type="image/png" href="icon2.png"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #000;
+    --card: #1C1C1E;
+    --card2: #2C2C2E;
+    --border: #2C2C2E;
+    --border2: #3A3A3C;
+    --green: #30D158;
+    --blue: #0A84FF;
+    --red: #FF453A;
+    --yellow: #FFD60A;
+    --orange: #FF9F0A;
+    --purple: #BF5AF2;
+    --teal: #5AC8FA;
+    --muted: #8E8E93;
+    --font: 'Inter', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: #fff;
+    font-family: var(--font);
+    padding: 24px 20px 48px;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 600px; margin: 0 auto; }
+
+  /* ── Header ── */
+  .header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 32px 0 28px;
+  }
+  .header img {
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 24px rgba(10,132,255,0.3);
+  }
+  .header h1 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .header .subtitle {
+    color: var(--muted);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    max-width: 420px;
+  }
+
+  /* ── Nav ── */
+  .nav {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 28px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    justify-content: center;
+  }
+  .nav a { color: var(--red); text-decoration: none; }
+  .nav span { color: var(--border2); }
+  .nav .current { color: var(--blue); }
+
+  /* ── Section heading ── */
+  .section-label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--muted);
+    margin: 28px 0 10px 4px;
+  }
+
+  /* ── Card ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 12px;
+  }
+  .card h2 {
+    font-size: 0.95rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 14px;
+  }
+
+  /* ── Step list ── */
+  .steps { list-style: none; }
+  .steps li {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .steps li:last-child { border-bottom: none; padding-bottom: 0; }
+  .step-num {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--blue);
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .step-body { flex: 1; }
+  .step-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .step-desc {
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .step-desc strong { color: #fff; }
+
+  /* ── Config table ── */
+  .config-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+  }
+  .config-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .config-field {
+    width: 140px;
+    flex-shrink: 0;
+    font-weight: 700;
+    color: #fff;
+  }
+  .config-desc { color: var(--muted); line-height: 1.4; }
+  .config-desc em { color: var(--yellow); font-style: normal; font-size: 0.78rem; }
+
+  /* ── Pattern cards ── */
+  .pattern {
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 10px;
+    border-left: 3px solid transparent;
+  }
+  .pattern:last-child { margin-bottom: 0; }
+  .pattern.realistic { background: rgba(48,209,88,0.07); border-color: var(--green); }
+  .pattern.volatile  { background: rgba(255,159,10,0.07); border-color: var(--orange); }
+  .pattern.flat      { background: rgba(90,200,250,0.07); border-color: var(--teal); }
+  .pattern-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .pattern-label {
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .pattern.realistic .pattern-label { color: var(--green); }
+  .pattern.volatile  .pattern-label { color: var(--orange); }
+  .pattern.flat      .pattern-label { color: var(--teal); }
+  .badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .badge-green  { background: rgba(48,209,88,0.15);  color: var(--green); }
+  .badge-orange { background: rgba(255,159,10,0.15); color: var(--orange); }
+  .badge-teal   { background: rgba(90,200,250,0.15); color: var(--teal); }
+  .pattern-best {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+  .pattern-best strong { color: #fff; font-weight: 600; }
+  .bullet-list { list-style: none; }
+  .bullet-list li {
+    font-size: 0.8rem;
+    color: var(--muted);
+    padding: 3px 0;
+    padding-left: 14px;
+    position: relative;
+    line-height: 1.4;
+  }
+  .bullet-list li::before {
+    content: '—';
+    position: absolute;
+    left: 0;
+    color: var(--border2);
+  }
+  .bullet-list li strong { color: #fff; font-weight: 600; }
+
+  /* ── Lab milestone table ── */
+  .lab-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.83rem;
+  }
+  .lab-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .lab-day {
+    width: 52px;
+    flex-shrink: 0;
+    font-weight: 800;
+    color: var(--purple);
+  }
+  .lab-phase {
+    width: 80px;
+    flex-shrink: 0;
+    font-weight: 700;
+    color: #fff;
+  }
+  .lab-notes { color: var(--muted); line-height: 1.4; }
+
+  /* ── Gate table ── */
+  .gate-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.83rem;
+  }
+  .gate-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .gate-name { width: 90px; flex-shrink: 0; font-weight: 700; color: #fff; }
+  .gate-range { width: 120px; flex-shrink: 0; color: var(--muted); }
+  .gate-cheat { color: var(--yellow); font-weight: 600; }
+
+  /* ── Cheat sheet pill row ── */
+  .cheat-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+  .cheat-pill {
+    background: var(--card2);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--yellow);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .cheat-pill .label { color: var(--muted); font-weight: 400; }
+
+  /* ── Info / warning banners ── */
+  .info-banner {
+    background: rgba(10,132,255,0.1);
+    border: 1px solid var(--blue);
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 0.82rem;
+    color: var(--blue);
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
+  .info-banner strong { color: #fff; }
+
+  .preview-example {
+    background: #111;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 0.78rem;
+    color: var(--green);
+    font-family: 'Menlo', 'Monaco', monospace;
+    line-height: 1.7;
+    margin-top: 10px;
+  }
+  .preview-example .dim { color: var(--muted); }
+
+  /* ── localStorage keys ── */
+  .key-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.83rem;
+  }
+  .key-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .key-name {
+    font-family: 'Menlo', 'Monaco', monospace;
+    font-size: 0.75rem;
+    color: var(--purple);
+    font-weight: 600;
+    flex-shrink: 0;
+    width: 220px;
+  }
+  .key-desc { color: var(--muted); line-height: 1.4; }
+  .key-desc strong { color: #fff; }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center;
+    color: var(--border2);
+    font-size: 0.75rem;
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <img src="icon2.png" alt="AMN Protocol icon"/>
+    <h1>Data Loader Guide</h1>
+    <p class="subtitle">
+      Reference for the Protocol Data Loader — how to configure it, which
+      scenarios to run, what data gets generated, and how lab panels and
+      signal review gates are triggered.
+    </p>
+  </div>
+
+  <!-- Nav -->
+  <div class="nav">
+    <a href="stress-test.html">⚡ Stress Test</a>
+    <span>&middot;</span>
+    <a href="120-day-test.html">📦 Data Loader</a>
+    <span>&middot;</span>
+    <span class="current">📖 Guide</span>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="section-label">Getting Started</div>
+
+  <div class="info-banner">
+    All synthetic data writes to a <strong>separate Firestore collection</strong>
+    (synthetic_logs) — completely isolated from your real logs. Click
+    <strong>Clear Synthetic Data</strong> at any time to wipe it. Your real data
+    is never touched.
+  </div>
+
+  <div class="card">
+    <h2>Step-by-Step</h2>
+    <ol class="steps">
+      <li>
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Open the Loader</div>
+          <div class="step-desc">Navigate to <strong>120-day-test.html</strong>. You can also reach it from the ⚡ Stress Test nav link at the top of any companion page.</div>
+        </div>
+      </li>
+      <li>
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Sign In</div>
+          <div class="step-desc">The Load button stays disabled until authenticated. If the status says <strong>"Checking login status…"</strong> for more than a few seconds, sign in through the main app first, then return.</div>
+        </div>
+      </li>
+      <li>
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Configure Your Run</div>
+          <div class="step-desc">Set days, start date, profile, data pattern, and the auto-set dates checkbox. See the Configuration Fields section below.</div>
+        </div>
+      </li>
+      <li>
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Read the Preview Line</div>
+          <div class="step-desc">Before clicking Load, the small text under the checkbox confirms your baseline date, NA start date, NA day count, and which signal review gates will be <strong>ACTIVE</strong> or past.</div>
+        </div>
+      </li>
+      <li>
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <div class="step-title">Click "Load X Days of Data"</div>
+          <div class="step-desc">A progress bar fills. The log shows every step — day generation, lab panel insertions, batch writes. Takes <strong>15–60 seconds</strong> depending on day count.</div>
+        </div>
+      </li>
+      <li>
+        <div class="step-num">6</div>
+        <div class="step-body">
+          <div class="step-title">Go Back to the App</div>
+          <div class="step-desc">Click <strong>Back to App</strong>. Charts, signal review, and PDF export are all live immediately.</div>
+        </div>
+      </li>
+      <li>
+        <div class="step-num">7</div>
+        <div class="step-body">
+          <div class="step-title">Clean Up When Done</div>
+          <div class="step-desc">Click <strong>Clear Synthetic Data</strong> to wipe every document tagged <code style="color:var(--purple)">_synthetic: true</code> from Firestore. Real logs unaffected.</div>
+        </div>
+      </li>
+    </ol>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="section-label">Configuration Fields</div>
+
+  <div class="card">
+    <div class="config-row">
+      <div class="config-field">Days to generate</div>
+      <div class="config-desc">How many days of daily logs to create. Range: 7–365. Default 120. Change it and the button text, start date, and gate preview all update instantly. <em>Tip: change this first, then adjust start date if needed.</em></div>
+    </div>
+    <div class="config-row">
+      <div class="config-field">Start date</div>
+      <div class="config-desc">The first day of synthetic history. Auto-sets to X days ago so today is always the final day of the generated range.</div>
+    </div>
+    <div class="config-row">
+      <div class="config-field">Profile</div>
+      <div class="config-desc">Which pilot profile to generate data for. Currently: Pilot (Patrick).</div>
+    </div>
+    <div class="config-row">
+      <div class="config-field">Data pattern</div>
+      <div class="config-desc">The shape of the data over time. Realistic, Volatile, or Flat — see Data Patterns below.</div>
+    </div>
+    <div class="config-row">
+      <div class="config-field">Auto-set dates</div>
+      <div class="config-desc">When checked, clicking Load writes baseline and NA start dates to localStorage. <em>Leave checked unless dates are already set manually in the app.</em></div>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="section-label">Preview Line</div>
+
+  <div class="card">
+    <h2>What to Look For</h2>
+    <p style="font-size:0.85rem; color:var(--muted); line-height:1.5; margin-bottom:12px;">
+      Before you click Load, the preview under the checkbox reads something like:
+    </p>
+    <div class="preview-example">
+      <span class="dim">Baseline start:</span> 2025-11-24 &nbsp;|&nbsp; <span class="dim">NA start:</span> 2025-12-08 &nbsp;|&nbsp; <span class="dim">NA day</span> 106<br/>
+      <span class="dim">Signal review gates:</span> 3-month ✓ past, 6-month ✅ ACTIVE
+    </div>
+    <p style="font-size:0.82rem; color:var(--muted); line-height:1.5; margin-top:12px;">
+      This confirms exactly which gates will be open when you open the app — no surprises.
+      If it shows a warning about needing more days to reach a gate, just increase the day count.
+    </p>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="section-label">Data Patterns</div>
+
+  <div class="card">
+    <h2>Choose Your Scenario</h2>
+
+    <div class="pattern realistic">
+      <div class="pattern-header">
+        <span class="pattern-label">Realistic</span>
+        <span class="badge badge-green">Default</span>
+      </div>
+      <p class="pattern-best"><strong>Best for:</strong> Full story arc, signal review narrative, PDF export quality.</p>
+      <ul class="bullet-list">
+        <li>Symptoms start high <strong>(~6.5/10)</strong> and trend down to ~4 over time</li>
+        <li>Energy starts low <strong>(~4/10)</strong> and climbs to ~7</li>
+        <li>Pain starts ~5.5 and drops to ~3.5</li>
+        <li>Sleep quality improves steadily throughout</li>
+        <li>Adherence grows from ~75% to ~95%</li>
+        <li>NMT level shifts from none/light → full by end</li>
+        <li>15% flare day chance per day adds realistic noise</li>
+        <li>FAST markers (near-falls, spasms) decrease over time</li>
+      </ul>
+    </div>
+
+    <div class="pattern volatile">
+      <div class="pattern-header">
+        <span class="pattern-label">Volatile</span>
+        <span class="badge badge-orange">Stress Test</span>
+      </div>
+      <p class="pattern-best"><strong>Best for:</strong> Difficult/non-linear response, messy chart testing, signal review language for a patient not improving cleanly.</p>
+      <ul class="bullet-list">
+        <li>All metrics follow a <strong>~7-day sine wave</strong> — good weeks, bad weeks</li>
+        <li>Slight overall improvement is buried in the noise</li>
+        <li>Symptom volatility scores are elevated</li>
+        <li>Flare days cluster at wave peaks</li>
+      </ul>
+    </div>
+
+    <div class="pattern flat">
+      <div class="pattern-header">
+        <span class="pattern-label">Flat</span>
+        <span class="badge badge-teal">Baseline / No Response</span>
+      </div>
+      <p class="pattern-best"><strong>Best for:</strong> Non-responder scenarios, checking that charts don't falsely show improvement, testing the "no signal" case in signal review.</p>
+      <ul class="bullet-list">
+        <li>Everything holds steady — symptoms ~5, energy ~5.5, pain ~4, sleep ~6</li>
+        <li>Consistent adherence but <strong>no trend</strong></li>
+        <li>No meaningful NMT progression</li>
+        <li>Flare days still occur randomly</li>
+      </ul>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="section-label">Lab Panels</div>
+
+  <div class="card">
+    <h2>Milestone Blood Work</h2>
+    <p style="font-size:0.82rem; color:var(--muted); line-height:1.5; margin-bottom:14px;">
+      Lab panels are automatically embedded at milestone days within the range you generate.
+      If you run fewer days, the final day gets the closest appropriate panel so the lab tab is never empty.
+      VLCFA values trend gradually downward across all phases.
+    </p>
+    <div class="lab-row">
+      <div class="lab-day">Day 0</div>
+      <div class="lab-phase">Baseline</div>
+      <div class="lab-notes">Higher VLCFA values, full pre-protocol liver / kidney / CBC / lipid panel</div>
+    </div>
+    <div class="lab-row">
+      <div class="lab-day">Day 90</div>
+      <div class="lab-phase">3-Month</div>
+      <div class="lab-notes">VLCFA trending ~10% lower, slight liver enzyme improvement</div>
+    </div>
+    <div class="lab-row">
+      <div class="lab-day">Day 180</div>
+      <div class="lab-phase">6-Month</div>
+      <div class="lab-notes">VLCFA ~15% lower from baseline</div>
+    </div>
+    <div class="lab-row">
+      <div class="lab-day">Day 270</div>
+      <div class="lab-phase">9-Month</div>
+      <div class="lab-notes">VLCFA ~20% lower from baseline</div>
+    </div>
+    <div class="lab-row">
+      <div class="lab-day">Day 364</div>
+      <div class="lab-phase">12-Month</div>
+      <div class="lab-notes">VLCFA ~25% lower, year-one evaluation notes</div>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="section-label">Signal Review Gates</div>
+
+  <div class="card">
+    <h2>Gate Windows</h2>
+    <p style="font-size:0.82rem; color:var(--muted); line-height:1.5; margin-bottom:14px;">
+      Gates are based on <strong style="color:#fff">NA start date</strong> (baseline + 14 days).
+      Each gate has a window — set your day count so NA day falls inside it.
+    </p>
+    <div class="gate-row">
+      <div class="gate-name">3-Month</div>
+      <div class="gate-range" style="color:var(--muted)">NA days 75–105</div>
+      <div class="gate-cheat">Set days ≈ 103</div>
+    </div>
+    <div class="gate-row">
+      <div class="gate-name">6-Month</div>
+      <div class="gate-range" style="color:var(--muted)">NA days 165–195</div>
+      <div class="gate-cheat">Set days ≈ 193</div>
+    </div>
+    <div class="gate-row">
+      <div class="gate-name">9-Month</div>
+      <div class="gate-range" style="color:var(--muted)">NA days 252–282</div>
+      <div class="gate-cheat">Set days ≈ 280</div>
+    </div>
+    <div class="gate-row">
+      <div class="gate-name">12-Month</div>
+      <div class="gate-range" style="color:var(--muted)">NA day 336+</div>
+      <div class="gate-cheat">Set days = 365</div>
+    </div>
+
+    <p style="font-size:0.82rem; color:var(--muted); margin-top:16px; margin-bottom:10px;">Quick picks:</p>
+    <div class="cheat-row">
+      <div class="cheat-pill"><span class="label">3-mo active</span> 103 days</div>
+      <div class="cheat-pill"><span class="label">6-mo active</span> 193 days</div>
+      <div class="cheat-pill"><span class="label">9-mo active</span> 280 days</div>
+      <div class="cheat-pill"><span class="label">12-mo active</span> 365 days</div>
+      <div class="cheat-pill"><span class="label">all past</span> 365 days</div>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="section-label">Auto-Set Dates</div>
+
+  <div class="card">
+    <h2>localStorage Keys</h2>
+    <p style="font-size:0.82rem; color:var(--muted); line-height:1.5; margin-bottom:14px;">
+      When the checkbox is checked (default), clicking Load writes these keys to localStorage.
+      This is what unlocks signal review — without them, the app doesn't know when the protocol started
+      and checkpoints won't fire. Uncheck only if you've already set dates manually in the app.
+    </p>
+    <div class="key-row">
+      <div class="key-name">amn_baseline_start_date</div>
+      <div class="key-desc">Set to the <strong>start date</strong> you configured in the loader</div>
+    </div>
+    <div class="key-row">
+      <div class="key-name">amn_na_start_date</div>
+      <div class="key-desc">Set to <strong>start date + 14 days</strong> (nervonic acid protocol start)</div>
+    </div>
+  </div>
+
+
+  <div class="footer">
+    AMN Protocol — Pilot Program &nbsp;·&nbsp; Data Loader Reference
+  </div>
+
+</div>
+</body>
+</html>
