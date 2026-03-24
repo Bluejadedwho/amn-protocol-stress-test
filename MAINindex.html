@@ -1270,7 +1270,7 @@ body.modal-open {
             m.style.display = 'flex';
             window._lockScroll();
             const iframe = byId('baseline-iframe');
-            if(iframe) iframe.src = './baseline-assessment.html';
+            if(iframe && !iframe.src.includes('baseline-assessment.html')) iframe.src = './baseline-assessment.html';
         }
     };
 
@@ -1719,15 +1719,16 @@ body.modal-open {
       }
     };
 
-    window.resetPilotForm = function() {
+    window.resetPilotForm = function(skipBaseline) {
       const form = byId("patrick-form");
       if (!form) return;
+      if (typeof window._clearPsychNoData === 'function') window._clearPsychNoData();
       form.reset();
       try { window.setNeuromuscularTraining(0, "none"); } catch(e){}
       const adv = document.getElementById('p-adverse-events'); if (adv) adv.innerHTML = '';
       const pos = document.getElementById('p-positive-events'); if (pos) pos.innerHTML = '';
       Array.from(form.querySelectorAll('input[type="range"]')).forEach(r => window.updateSlider(r));
-      window.applyBaselineDefaults();
+      if (!skipBaseline) window.applyBaselineDefaults();
       try { window.clearDraft(); } catch(e){}
       window.scrollTo(0,0);
     };
@@ -1745,6 +1746,7 @@ body.modal-open {
       "p-stiff":            "leg_stiff_num",
       "p-postrest":         "post_rest_num",
       "p-volatility":       "volatility_num",
+      "p-painimpact":       "pain_num",
       "p-ps-mood":          "mood_num",
       "p-ps-anxiety":       "anxiety_num",
       "p-ps-cognitive-load":"cognitive_load_num"
@@ -2763,15 +2765,6 @@ Conceptual Foundation and Mechanistic Framework
 <p>This is an N of 1 protocol. The Pilot is the primary subject (myself), who implements the full protocol and tracks tolerability, safety, and functional outcomes over time.</p>
 <p>This system exists to apply structured, translation-focused reasoning in an area where large-scale human research remains limited.</p>
 <p>It is structured, controlled, and documented.</p>
-<hr style="border-color:#333; margin: 20px 0;"/>
-<h4 style="color:#FF9F0A; margin-bottom:6px; text-align:center;">Data Tools</h4>
-<p style="font-size:0.82rem; color:#aaa; margin-bottom:12px; text-align:center;">One-time data migrations and maintenance operations. Run only when instructed.</p>
-<div style="background:#1a1a1e; border:1px solid #333; border-radius:10px; padding:14px; margin-bottom:8px;">
-  <div style="font-size:0.9rem; font-weight:700; color:#e0e0e0; margin-bottom:4px;">Anxiety &amp; Cognitive Load Scale Inversion (March 2026)</div>
-  <div style="font-size:0.8rem; color:#aaa; line-height:1.45; margin-bottom:10px;">Corrects stored values so higher = better, consistent with all other sliders. Formula: corrected = 10 − stored. Applies to <code>psychological_state.anxiety</code> and <code>psychological_state.cognitive_load</code> across all logs for the patrick profile. Safe to inspect — guards against double-run.</div>
-  <button id="migration-run-btn" type="button" onclick="window.runAnxietyCogLoadMigration()" style="font-size:0.8rem; padding:8px 16px; background:#FF9F0A; color:#000; font-weight:700; border:none; border-radius:8px; cursor:pointer;">RUN MIGRATION</button>
-  <div id="migration-output" style="margin-top:10px; font-size:0.8rem; color:#aaa; font-family:monospace; white-space:pre-wrap; line-height:1.5;"></div>
-</div>
 </div>
 </div>
 </div>
@@ -3445,7 +3438,7 @@ Persistent background information about your condition. Written once, updated as
 
 <div class="card">
 <h3>Pain Impact</h3>
-<div class="slider-header"><label>Pain impact (10 = Dominated the day)</label><span class="slider-val">0</span></div>
+<div class="slider-header"><label>Pain impact (0 = Dominated the day)</label><span class="slider-val">0</span></div>
 <input id="p-painimpact" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="0"/>
 <div style="margin-top:10px; font-size:0.85rem; color:var(--text-secondary);">Interference</div>
 <label class="checkbox-row"><span>Interfered with sleep</span><input id="p-pain-sleep" type="checkbox"/></label>
@@ -3549,7 +3542,7 @@ Persistent background information about your condition. Written once, updated as
 <input id="p-volatility" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
 </div>
 
-<div class="card">
+<div class="card" id="psych-state-card">
 <h3>Psychological State</h3>
 <div style="font-size:13px;color:rgba(255,255,255,0.55);margin-top:8px;margin-bottom:10px;line-height:1.35">Rate your emotional and cognitive state today. Tracked separately to cross-validate physical symptom trends.</div>
 <div class="slider-header"><label>Brain Fog (10 = Clear)</label><span class="slider-val">5</span></div>
@@ -3558,10 +3551,8 @@ Persistent background information about your condition. Written once, updated as
 <input id="p-ps-mood" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
 <div class="slider-header"><label>Anxiety (10 = None / Calm)</label><span class="slider-val">5</span></div>
 <input id="p-ps-anxiety" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
-<div style="font-size:0.72rem; color:#666; font-style:italic; margin-top:2px; margin-bottom:8px;">Scale corrected March 2026 — higher = calmer, consistent with all other sliders</div>
 <div class="slider-header"><label>Cognitive load / Mental effort (10 = Clearest / Least effort)</label><span class="slider-val">5</span></div>
 <input id="p-ps-cognitive-load" max="10" min="0" oninput="window.updateSlider(this)" type="range" value="5"/>
-<div style="font-size:0.72rem; color:#666; font-style:italic; margin-top:2px; margin-bottom:8px;">Scale corrected March 2026 — higher = clearest / least effort, consistent with all other sliders</div>
 <div class="input-group" style="margin-top:12px;">
 <label>Sense of agency — feeling in control of your health today</label>
 <select class="select" id="p-ps-agency" style="margin-top:8px;">
@@ -3897,6 +3888,14 @@ Persistent background information about your condition. Written once, updated as
 <button class="mini-btn" onclick="window.openTrends()" style="margin-bottom:20px;" type="button">VIEW TRENDS &amp; EXPORT PDF</button>
 <button class="back-btn" onclick="window.resetPilotForm()" style="width:100%; text-align:center; margin: 0 0 14px 0;" type="button">Reset today's form</button>
 <button class="save-btn" id="p-save-log" onclick="window.handlePilotSave()" type="button">SAVE DAILY LOG</button>
+
+<!-- Baseline Backfill Data Tool -->
+<div id="baseline-backfill-tool" class="card" style="margin-top:24px; display:none;">
+<h3 style="color:#f59e0b;">Data Tools</h3>
+<p style="font-size:0.85rem; color:#aaa; line-height:1.5; margin-top:8px;">One-time migration: replaces default 5s in old logs with your baseline values. Only runs on logs where every symptom shift slider was saved as 5 (i.e. never actually filled in). Logs with any real data are untouched.</p>
+<button id="baseline-backfill-btn" onclick="window.runBaselineBackfillMigration()" type="button" style="margin-top:12px; padding:10px 18px; background:#92400e; color:#fcd34d; border:1px solid #b45309; border-radius:8px; font-size:0.85rem; font-weight:700; cursor:pointer; letter-spacing:0.04em;">RUN BASELINE BACKFILL</button>
+<div id="baseline-backfill-output" style="margin-top:10px; font-size:0.83rem; color:#aaa; line-height:1.5;"></div>
+</div>
 </form>
 </section>
 
@@ -4346,7 +4345,7 @@ Persistent background information about your condition. Written once, updated as
             post_rest_stiffness: asNumber(val("p-postrest")),
             symptom_volatility: asNumber(val("p-volatility"))
           },
-          psychological_state: {
+          psychological_state: window._psychNoData ? null : {
             mood: asNumber(val("p-ps-mood")),
             anxiety: asNumber(val("p-ps-anxiety")),
             cognitive_load: asNumber(val("p-ps-cognitive-load")),
@@ -4473,10 +4472,11 @@ Persistent background information about your condition. Written once, updated as
       window.saveUserLog = saveUserLog;
 
       // ── Past Log Date Navigation ──────────────────────────────────────
-      function applyLogDataToForm(d) {
+      function applyLogDataToForm(d, skipDefaultRanges) {
         function setEl(id, value) {
           const el = document.getElementById(id);
           if (!el || value == null) return;
+          if (skipDefaultRanges && el.type === 'range' && Number(value) === 5) return;
           if (el.type === 'checkbox') el.checked = !!value;
           else el.value = value;
         }
@@ -4508,10 +4508,17 @@ Persistent background information about your condition. Written once, updated as
         setEl('p-postrest', sd.post_rest_stiffness);
         setEl('p-volatility', sd.symptom_volatility);
         const ps = d.psychological_state || {};
-        setEl('p-ps-mood', ps.mood);
-        setEl('p-ps-anxiety', ps.anxiety);
-        setEl('p-ps-cognitive-load', ps.cognitive_load);
-        setEl('p-ps-agency', ps.sense_of_agency);
+        if (!d.psychological_state) {
+          if (_formSessionDate && _formSessionDate !== localDateStr()) {
+            window._markPsychNoData();
+          }
+        } else {
+          window._clearPsychNoData();
+          setEl('p-ps-mood', ps.mood);
+          setEl('p-ps-anxiety', ps.anxiety);
+          setEl('p-ps-cognitive-load', ps.cognitive_load);
+          setEl('p-ps-agency', ps.sense_of_agency);
+        }
         const pi = d.pain_impact || {};
         setEl('p-painimpact', pi.severity);
         setEl('p-pain-sleep', pi.interfered_with_sleep);
@@ -4563,24 +4570,77 @@ Persistent background information about your condition. Written once, updated as
         if (typeof window.toggleSafetyBox === 'function') window.toggleSafetyBox();
       }
 
+      window._psychNoData = false;
+      window._psychPastDateLocked = false;
+
+      window._lockPsychForPastDate = function() {
+        window._psychPastDateLocked = true;
+        const card = document.getElementById('psych-state-card');
+        if (!card) return;
+        card.style.opacity = '0.6';
+        card.querySelectorAll('input, select').forEach(el => el.disabled = true);
+      };
+
+      window._unlockPsychForPastDate = function() {
+        window._psychPastDateLocked = false;
+        const card = document.getElementById('psych-state-card');
+        if (!card) return;
+        card.style.opacity = '';
+        card.querySelectorAll('input, select').forEach(el => el.disabled = false);
+      };
+
+      window._markPsychNoData = function() {
+        window._psychNoData = true;
+        const card = document.getElementById('psych-state-card');
+        if (!card) return;
+        card.style.opacity = '0.45';
+        card.querySelectorAll('input, select').forEach(el => el.disabled = true);
+        let notice = document.getElementById('psych-no-data-notice');
+        if (!notice) {
+          notice = document.createElement('div');
+          notice.id = 'psych-no-data-notice';
+          notice.style.cssText = 'margin-top:10px; padding:8px 12px; background:#1a1a1a; border:1px solid #444; border-radius:8px; font-size:0.8rem; color:#888; display:flex; align-items:center; justify-content:space-between; gap:10px;';
+          notice.innerHTML = `<span>Not logged on this date</span>
+            <button onclick="window._clearPsychNoData()" style="padding:4px 12px; border-radius:6px; border:1px solid #555; background:transparent; color:#aaa; font-size:0.78rem; cursor:pointer;">Add data</button>`;
+          card.appendChild(notice);
+        }
+      };
+
+      window._clearPsychNoData = function() {
+        window._psychNoData = false;
+        const notice = document.getElementById('psych-no-data-notice');
+        if (notice) notice.remove();
+        if (window._psychPastDateLocked) return; // stay locked for past dates
+        const card = document.getElementById('psych-state-card');
+        if (card) {
+          card.style.opacity = '';
+          card.querySelectorAll('input, select').forEach(el => el.disabled = false);
+        }
+      };
+
       window.loadLogForDate = async function(dateStr) {
         if (!dateStr) return;
         if (!window.CURRENT_UID) { alert('Sign in to load past entries.'); return; }
         const isToday = dateStr === localDateStr();
         try {
           const snap = await db.doc(`users/${window.CURRENT_UID}/profiles/patrick/logs/${encodeURIComponent(dateStr)}`).get();
-          window.resetPilotForm();
+          window._unlockPsychForPastDate();
+          window.resetPilotForm(!isToday);
           window.__RESTORED_DRAFT_DATE = isToday ? null : dateStr;
           _formSessionDate = dateStr;
           const navInput = document.getElementById('log-nav-date');
           if (navInput) navInput.value = dateStr;
           if (snap.exists) {
-            applyLogDataToForm(snap.data());
+            if (!isToday) await window.applyBaselineDefaults();
+            applyLogDataToForm(snap.data(), !isToday);
           } else if (!isToday) {
-            alert(`No saved entry found for ${dateStr}. The form is blank — fill it in and save to create an entry for this date.`);
+            await window.applyBaselineDefaults();
           }
-          if (!isToday) showSavingForDateBanner(dateStr);
-          else removeSavingForDateBanner();
+          if (!isToday) {
+            showSavingForDateBanner(dateStr);
+          } else {
+            removeSavingForDateBanner();
+          }
         } catch(e) {
           console.error('loadLogForDate error:', e);
           alert('Could not load entry: ' + (e.message || e));
@@ -4590,6 +4650,8 @@ Persistent background information about your condition. Written once, updated as
       window.resetToToday = function() {
         window.__RESTORED_DRAFT_DATE = null;
         _formSessionDate = localDateStr();
+        window._unlockPsychForPastDate();
+        window._clearPsychNoData();
         removeSavingForDateBanner();
         const mb = document.getElementById("midnight-banner");
         if (mb) mb.remove();
@@ -4600,7 +4662,32 @@ Persistent background information about your condition. Written once, updated as
 
       window.handleLogDateChange = function(dateStr) {
         if (!dateStr) return;
-        window.loadLogForDate(dateStr);
+        if (dateStr === localDateStr()) { window.loadLogForDate(dateStr); return; }
+        // Past date — show a confirmation prompt instead of auto-loading
+        const existing = document.getElementById('log-date-confirm-banner');
+        if (existing) existing.remove();
+        const b = document.createElement('div');
+        b.id = 'log-date-confirm-banner';
+        b.style.cssText = `background:#1a1a2e; border:1px solid #4a9eff; border-radius:10px;
+          padding:10px 14px; margin-bottom:14px; display:flex; align-items:center;
+          justify-content:space-between; gap:10px;`;
+        b.innerHTML = `
+          <div style="font-size:0.85rem; color:#4a9eff; line-height:1.4;">
+            Load entry for <strong>${dateStr}</strong>?
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button onclick="window.loadLogForDate('${dateStr}'); document.getElementById('log-date-confirm-banner')?.remove();"
+              style="padding:6px 14px; border-radius:8px; border:0; background:#4a9eff; color:#000; font-size:0.78rem; font-weight:700; cursor:pointer;">
+              Load
+            </button>
+            <button onclick="document.getElementById('log-date-confirm-banner')?.remove(); document.getElementById('log-nav-date').value = window.__RESTORED_DRAFT_DATE || localDateStr();"
+              style="padding:6px 12px; border-radius:8px; border:1px solid #555; background:transparent; color:#aaa; font-size:0.78rem; cursor:pointer;">
+              Cancel
+            </button>
+          </div>
+        `;
+        const form = document.getElementById('patrick-form');
+        if (form) form.insertBefore(b, form.firstChild);
       };
 
       async function fetchPatientLogsInRange(patientId, startDate, endDate, dir = "desc") {
@@ -5876,6 +5963,122 @@ Persistent background information about your condition. Written once, updated as
         }
       };
 
+      // ── BASELINE BACKFILL MIGRATION (run once) ────────────────────────────
+      // Replaces all-5 symptom_drift entries (default, never filled) with baseline values.
+      // Only touches logs where every one of the 8 symptom shift fields = 5.
+      window.runBaselineBackfillMigration = async function() {
+        const MIGRATION_KEY = 'amn_baseline_backfill_v1_done';
+        const btn = document.getElementById('baseline-backfill-btn');
+        const out = document.getElementById('baseline-backfill-output');
+        const setOut = (msg) => { if (out) out.textContent = msg; };
+
+        if (localStorage.getItem(MIGRATION_KEY) === 'true') {
+          setOut('Migration already completed. Remove localStorage key amn_baseline_backfill_v1_done to re-run.');
+          return;
+        }
+
+        const uid = window.CURRENT_UID;
+        if (!uid) { setOut('Error: not signed in.'); return; }
+
+        // Load baseline snapshot
+        const stored = JSON.parse(localStorage.getItem('amn_baseline_snapshots_v1') || 'null');
+        const localSnaps = stored && stored.snapshots ? stored.snapshots : (Array.isArray(stored) ? stored : []);
+        let snap = localSnaps.filter(s => s.locked).pop() || localSnaps[localSnaps.length - 1] || null;
+        if (!snap) {
+          // Try Firestore
+          try {
+            const fsDoc = await db.collection('users').doc(uid).collection('baseline').doc('snapshots').get();
+            if (fsDoc.exists) {
+              const fsSnaps = fsDoc.data().snapshots || [];
+              snap = fsSnaps.filter(s => s.locked).pop() || fsSnaps[fsSnaps.length - 1] || null;
+            }
+          } catch(e) { /* ignore */ }
+        }
+        if (!snap || !snap.data) { setOut('No baseline snapshot found. Complete your baseline assessment first.'); return; }
+
+        const bd = snap.data;
+        // Map snapshot keys → symptom_drift Firestore field values
+        const baselineSymptomDrift = {
+          step_gait_effort:       Number(bd.gait_step_num),
+          gait_initiation_effort: Number(bd.gait_init_num),
+          sustained_walking_effort: Number(bd.gait_sustain_num),
+          neurologic_fatigue:     Number(bd.neuro_fatigue_num),
+          sleep_quality:          Number(bd.sleep_num),
+          leg_stiffness:          Number(bd.leg_stiff_num),
+          post_rest_stiffness:    Number(bd.post_rest_num),
+          symptom_volatility:     Number(bd.volatility_num)
+        };
+        const driftFields = Object.keys(baselineSymptomDrift);
+
+        if (btn) { btn.disabled = true; btn.textContent = 'RUNNING…'; }
+        setOut('Fetching logs…');
+
+        try {
+          const logsRef = db.collection(`users/${uid}/profiles/patrick/logs`);
+          const snap2 = await logsRef.get();
+          if (snap2.empty) { setOut('No logs found.'); if (btn) { btn.disabled = false; btn.textContent = 'RUN BASELINE BACKFILL'; } return; }
+
+          let updatedCount = 0, skippedCount = 0;
+          const BATCH_SIZE = 400;
+          let batch = db.batch();
+          let opsInBatch = 0;
+
+          for (const doc of snap2.docs) {
+            const data = doc.data();
+            const sd = data.symptom_drift;
+
+            // Only touch logs where every drift field is exactly 5 (default, never filled)
+            const allFive = sd && driftFields.every(f => Number(sd[f]) === 5);
+            if (!allFive) { skippedCount++; continue; }
+
+            const updates = {};
+            driftFields.forEach(f => {
+              const v = baselineSymptomDrift[f];
+              if (Number.isFinite(v) && v >= 0 && v <= 10) {
+                updates[`symptom_drift.${f}`] = v;
+              }
+            });
+
+            if (Object.keys(updates).length === 0) { skippedCount++; continue; }
+
+            batch.update(doc.ref, updates);
+            updatedCount++;
+            opsInBatch++;
+
+            if (opsInBatch >= BATCH_SIZE) {
+              await batch.commit();
+              batch = db.batch();
+              opsInBatch = 0;
+              setOut(`Migrating… ${updatedCount} docs updated so far`);
+            }
+          }
+
+          if (opsInBatch > 0) await batch.commit();
+
+          localStorage.setItem(MIGRATION_KEY, 'true');
+          setOut(`✓ Done — ${updatedCount} log(s) updated with baseline values, ${skippedCount} skipped (had real data or no symptom_drift).`);
+          if (btn) { btn.textContent = 'MIGRATION COMPLETE ✓'; }
+          // Hide the tool card after success
+          setTimeout(() => {
+            const tool = document.getElementById('baseline-backfill-tool');
+            if (tool) tool.style.display = 'none';
+          }, 4000);
+        } catch(e) {
+          console.error('[BaselineBackfill] failed:', e);
+          setOut('Migration failed: ' + (e.message || e));
+          if (btn) { btn.disabled = false; btn.textContent = 'RUN BASELINE BACKFILL'; }
+        }
+      };
+
+      // Show the baseline backfill tool if migration hasn't been run yet
+      (function initBaselineBackfillTool() {
+        const MIGRATION_KEY = 'amn_baseline_backfill_v1_done';
+        if (localStorage.getItem(MIGRATION_KEY) !== 'true') {
+          const tool = document.getElementById('baseline-backfill-tool');
+          if (tool) tool.style.display = 'block';
+        }
+      })();
+
       window.showTrendsTab = function(which) {
         const sum = el("trends-summary-pane");
         const charts = el("trends-charts-pane");
@@ -6336,6 +6539,11 @@ Persistent background information about your condition. Written once, updated as
             window.__RESTORED_DRAFT_DATE = draft._date;
             _formSessionDate = draft._date;
             showSavingForDateBanner(draft._date);
+            // Update nav date input to reflect the draft's date
+            const navInput = document.getElementById('log-nav-date');
+            if (navInput) navInput.value = draft._date;
+            // Lock psych for this past date
+            if (typeof window._lockPsychForPastDate === 'function') window._lockPsychForPastDate();
           }
           banner.remove();
         });
@@ -6360,7 +6568,7 @@ Persistent background information about your condition. Written once, updated as
         `;
         b.innerHTML = `
           <div style="font-size:0.85rem; color:#FFD60A; line-height:1.4;">
-            Restored draft — saving for <strong>${dateStr}</strong>
+            Editing past entry — saving for <strong>${dateStr}</strong>
           </div>
           <button onclick="window.clearRestoredDraft()" style="padding:6px 12px; border-radius:8px; border:1px solid #555; background:transparent; color:#aaa; font-size:0.78rem; cursor:pointer; white-space:nowrap;">
             Clear &amp; use today
